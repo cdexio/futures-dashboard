@@ -55,17 +55,41 @@ export type Position = {
   side: "long" | "short";
   quantity: number;
   entryPrice: number;
+  /** Current price, from the exchange's own mark — not the last trade. */
+  markPrice: number;
+  /** Null under cross margin, where liquidation is an ACCOUNT-level event and
+   *  the exchange reports no per-position level. Shown as such, never as 0. */
+  liquidationPrice: number | null;
+  leverage: number | null;
+  marginUsd: number;
   unrealizedPnl: number;
+  /** Return on MARGIN, matching the exchange's own position table. On notional
+   *  it would read a twentieth of this at 20x and every row would disagree
+   *  with Binance for the same trade. */
+  roi: number;
+  /** The price move alone, leverage stripped out — whether the thesis is
+   *  working, which ROI does not say. */
+  priceChange: number;
   notional: number;
+  markNotional: number;
   stopPrice: number | null;
   takeProfitPrice: number | null;
+  /** Unsigned distance from the mark, as a fraction. */
+  stopDistance: number | null;
+  takeProfitDistance: number | null;
+  liquidationDistance: number | null;
   protected: boolean;
+  openedAt: string | null;
+  ageMinutes: number | null;
 };
 
 export type AccountSnapshot = {
   equity: number;
   available: number;
+  marginUsed: number;
   unrealizedPnl: number;
+  openPositions: number;
+  maxPositions: number;
   positions: Position[];
   mode: string;
   asOf: string;
@@ -128,12 +152,37 @@ export type Limits = {
   profitUsed: number;
   lossRemaining: number;
   profitRemaining: number;
+  /** Peak-to-trough, measured from the highest equity on record rather than
+   *  from where the day opened. The two day limits cannot see a good day being
+   *  handed back: a run from $100 to $150 and back to $101 reports a daily
+   *  loss of zero, which is true and is not what the account just did. */
+  peakEquity: number;
+  drawdown: number;
+  drawdownLimit: number;
+  drawdownRemaining: number;
   tradingHalted: boolean;
+  /** Which of the three limits stopped trading, or null. Named rather than a
+   *  bare boolean: the three call for completely different responses. */
+  haltReason: "drawdown" | "daily_loss" | "daily_profit" | null;
+  /** The operator's manual stop — a file on the trading machine. Blocks new
+   *  entries while still permitting exits. */
+  killSwitch: boolean;
   resetsAt: string;
   asOf: string;
 };
 
-export type ActivityEvent = { at: string; level: "info" | "warning" | "error"; message: string };
+export type ActivityEvent = {
+  at: string;
+  level: "info" | "warning" | "error";
+  /** A fixed set the dashboard styles by category, so a kind added later
+   *  arrives as "info" and is still shown rather than silently dropped. */
+  kind: "entry" | "exit" | "trail" | "protect" | "reject" | "cycle" | "signal" | "risk" | "error" | "info";
+  message: string;
+  symbol: string | null;
+};
+
+/** What `/api/live` returns: one instant, both halves. */
+export type LiveSnapshot = { account: AccountSnapshot; limits: Limits };
 
 export type Assets = {
   equity: number;
