@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+/*
+  CDEXIO — Solana-themed dark surface.
+
+  TWO PALETTES, DELIBERATELY SEPARATE.
+
+  The BRAND colours (#9945FF purple, #14F195 green) carry identity: the logo,
+  the active nav item, focus rings, the glow behind a hero number. They are
+  bright because they are meant to be, and they appear a few times per screen.
+
+  The SERIES colours below are a different set, validated against this exact
+  surface for the colour-vision checks that brand colours fail: Solana's green
+  and cyan sit 4.7 apart under tritanopia, which means a chart drawn in them is
+  two indistinguishable lines for some readers. Using brand colours for data is
+  the most common way a beautiful dashboard becomes an unreadable one.
+
+  Status colours are reserved for state — profit, loss, warning, halted — and
+  never reused as a sixth series.
+*/
+
+@theme {
+  /* Surfaces: near-black with a warm cast, so the purple reads as purple
+     rather than as blue against a cold grey. */
+  --color-surface: #0b0b0f;
+  --color-surface-raised: #13131a;
+  --color-surface-overlay: #1a1a24;
+  --color-border: #262633;
+  --color-border-strong: #343446;
+
+  /* Ink. Values and labels wear these, never a series colour — a number in a
+     series colour competes with the mark it describes. */
+  --color-ink: #f4f4f7;
+  --color-ink-secondary: #a8a8bd;
+  --color-ink-muted: #6b6b85;
+
+  /* Brand — identity only. */
+  --color-solana: #9945ff;
+  --color-solana-bright: #b47aff;
+  --color-solana-dim: #6d2fb8;
+  --color-mint: #14f195;
+  --color-mint-dim: #0c9c62;
+
+  /* Status. Reserved: never a series. */
+  --color-profit: #14f195;
+  --color-loss: #ff5c7c;
+  --color-warning: #ffb13b;
+  --color-halted: #ff5c7c;
+
+  /* Chart series, in fixed order. Validated against #0b0b0f for the lightness
+     band, chroma floor, CVD separation, normal-vision floor and contrast.
+     Assigned in this order and never cycled: a ninth series folds into
+     "Other" rather than reusing slot one, because a repeated hue makes two
+     different things look like the same thing. */
+  --color-series-1: #a855f7;
+  --color-series-2: #0e9f6e;
+  --color-series-3: #4f8ef7;
+  --color-series-4: #c97a1f;
+  --color-series-5: #db4a6b;
+
+  --font-display: "Geist", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Numbers align in columns only when their glyphs share a width. Without this
+   a table of PnL values shimmers as it updates, because 1 is narrower than 8
+   and every poll re-flows the column. */
+.tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* The ambient field behind the shell. Fixed rather than scrolled: a gradient
+   that moves with the content reads as a second scrolling layer and fights
+   the one the reader is actually using. */
+.aurora {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60rem 40rem at 12% -10%, rgba(153, 69, 255, 0.16), transparent 60%),
+    radial-gradient(48rem 32rem at 92% 8%, rgba(20, 241, 149, 0.08), transparent 62%),
+    radial-gradient(40rem 40rem at 50% 110%, rgba(153, 69, 255, 0.08), transparent 60%);
+}
+
+.aurora::after {
+  /* Grain. Flat gradients on a large dark surface band visibly on 8-bit
+     displays; noise at 2% breaks the bands without being seen as texture. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.glass {
+  background: linear-gradient(160deg, rgba(26, 26, 36, 0.86), rgba(11, 11, 15, 0.72));
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--color-border);
+}
+
+.glass-hover {
+  transition:
+    border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.glass-hover:hover {
+  border-color: var(--color-border-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px -18px rgba(153, 69, 255, 0.55);
+}
+
+.ring-solana {
+  box-shadow:
+    0 0 0 1px rgba(153, 69, 255, 0.35),
+    0 0 28px -8px rgba(153, 69, 255, 0.45);
+}
+
+/* A live indicator that does not spin. A spinner says "waiting"; this says
+   "current", which is the true state of a feed that polls. */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+.live-dot {
+  animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface-raised);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-solana-dim);
+}
+
+/* Motion is decoration. A reader who has asked the operating system to stop
+   moving things has asked this app too, and a dashboard is exactly the kind
+   of screen somebody stares at while stressed. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
