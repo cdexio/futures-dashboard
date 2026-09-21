@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { Providers } from "@/components/providers";
 import { Shell } from "@/components/shell";
 import { auth } from "@/lib/auth";
 
@@ -27,7 +28,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body>
         <div className="aurora" aria-hidden />
-        {authenticated ? <Shell email={session?.user?.email}>{children}</Shell> : children}
+        <Providers>
+          {authenticated ? <Shell email={session?.user?.email}>{children}</Shell> : children}
+        </Providers>
       </body>
     </html>
   );

@@ -1,0 +1,26 @@
+[Unit]
+Description=CDEXIO dashboard — Next.js
+# The bot API is not Required. If it is down the dashboard must still load and
+# show the error, because "the trading machine is not answering" is exactly the
+# thing somebody opens this page to find out.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/cdexio-dashboard
+EnvironmentFile=/opt/cdexio-dashboard/.env.local
+Environment=NODE_ENV=production
+Environment=PORT=3100
+ExecStart=/usr/bin/npm run start
+
+# Bound to 3100 on localhost behind nginx. Next binds 0.0.0.0 by default, so
+# the firewall and nginx are what keep it off the public interface — the app
+# itself must never be reachable except through the TLS terminator.
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
