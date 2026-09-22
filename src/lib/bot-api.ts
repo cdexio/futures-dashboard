@@ -197,6 +197,10 @@ export type Settings = {
   execution: Record<string, string | number>;
   risk: Record<string, number>;
   exits: Record<string, number>;
+  /** Which signals are allowed to become trades. These decide more of the
+   *  book than the exit rules do: shorts and momentum being off removes most
+   *  of the signal volume, and the range filter removes 69% of what is left. */
+  signals: Record<string, string | number | boolean>;
   universe: Record<string, string | number | string[]>;
   data: Record<string, string | number>;
   credentials: Record<string, string>;

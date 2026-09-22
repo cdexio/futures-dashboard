@@ -23,6 +23,8 @@ const LABELS: Record<string, string> = {
   minLeverage: "Minimum leverage",
   maxLeverage: "Maximum leverage",
   minMarginUsd: "Minimum margin per position (USD)",
+  maxNotionalRatio: "Max position size (× equity)",
+  maxMarginRatio: "Max margin per position",
   dailyLossLimit: "Daily loss stop",
   dailyProfitLimit: "Daily profit stop",
   maxDrawdown: "Maximum drawdown",
@@ -30,12 +32,20 @@ const LABELS: Record<string, string> = {
   riskPerTrade: "Risk per trade",
   maxPortfolioRisk: "Total portfolio risk",
   maxPositionsPerCluster: "Positions per correlation cluster",
-  reentryCooldownHours: "Re-entry cooldown after a loss (hours)",
+  // Every close, not only a losing one — the manager stamps the cooldown on
+  // retirement regardless of PnL, and the old label said otherwise.
+  reentryCooldownHours: "Re-entry cooldown after any close (hours)",
   stopLimitOffsetPct: "Stop-limit offset",
   takeProfitRMultiple: "Take profit (× risk)",
   trailAtrMultiple: "Trailing stop (× ATR)",
   losingMaxAgeHours: "Max hold — losing (hours)",
   winningMaxAgeHours: "Max hold — winning (hours)",
+  allowShorts: "Short trades allowed",
+  momentumEnabled: "Momentum strategy",
+  pullbackEnabled: "Pullback strategy",
+  entryMaxRangePosition: "Max entry position in 24h range",
+  entryMaxSignalAgeMinutes: "Entry window after bar close (minutes)",
+  stopAtrMultiple: "Stop distance (× ATR)",
   traderUniverseSize: "Symbols screened",
   traderMinQuoteVolume: "Minimum daily turnover (USD)",
   datalakeIntervals: "Candle intervals stored",
@@ -55,14 +65,21 @@ const AS_PERCENT = new Set([
   "riskPerTrade",
   "maxPortfolioRisk",
   "stopLimitOffsetPct",
+  "maxMarginRatio",
+  "entryMaxRangePosition",
 ]);
 
 function present(key: string, value: unknown): string {
+  // A switch reads as on/off, not as "true". Done before the number branch
+  // because `false` is the value an operator most needs to SEE rather than
+  // skim past — shorts and momentum being off is most of the current book.
+  if (typeof value === "boolean") return value ? "on" : "off";
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "number") {
     if (AS_PERCENT.has(key)) return `${(value * 100).toFixed(2)}%`;
     if (key === "traderMinQuoteVolume") return value === 0 ? "none" : `$${value.toLocaleString()}`;
     if (key === "maxEquityUsd") return `$${value.toLocaleString()}`;
+    if (key === "maxNotionalRatio") return `${value}× equity`;
     return String(value);
   }
   return String(value);
@@ -143,24 +160,30 @@ export default async function SettingsPage() {
           delay={0.08}
         />
         <Group
+          title="Signals"
+          hint="Which signals may become trades. Measured 2026-09-22: shorts lost on all four strategies, momentum was the worst long route, and refusing entries above 60% of the 24h range was the single largest improvement."
+          values={settings.signals}
+          delay={0.12}
+        />
+        <Group
           title="Exits"
           hint="How a position ends: target, trailing stop, or the clock."
           values={settings.exits}
-          delay={0.12}
+          delay={0.16}
         />
         <Group
           title="Universe"
           hint="Which markets are screened for signals."
           values={settings.universe}
-          delay={0.16}
+          delay={0.2}
         />
         <Group
           title="Data"
           hint="The lake the signals are built from."
           values={settings.data}
-          delay={0.2}
+          delay={0.24}
         />
-        <Reveal delay={0.24}>
+        <Reveal delay={0.28}>
           <Card className="p-6" hoverable={false}>
             <SectionTitle
               title="Credentials"
