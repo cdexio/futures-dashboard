@@ -23,6 +23,7 @@ const LABELS: Record<string, string> = {
   minLeverage: "Minimum leverage",
   maxLeverage: "Maximum leverage",
   minMarginUsd: "Minimum margin per position (USD)",
+  entryPostOnly: "Enter with resting limit orders (maker)",
   maxNotionalRatio: "Max position size (× equity)",
   maxMarginRatio: "Max margin per position",
   dailyLossLimit: "Daily loss stop",
