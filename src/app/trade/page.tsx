@@ -29,7 +29,19 @@ export default async function TradePage() {
   const [account, limits, analytics, activity] = await Promise.all([
     botFetch<AccountSnapshot>("/api/account"),
     botFetch<Limits>("/api/limits"),
-    botFetch<Analytics>("/api/analytics?days=1"),
+    // `period=day` is MIDNIGHT UTC, not a rolling 24 hours.
+    //
+    // This card is labelled "Realized PnL · today" and sits beside one reading
+    // "on $94.85 at 00:00 UTC". With `days=1` the two measured different
+    // periods: on 2026-09-22 the rolling window reached back to 14:46 the
+    // previous day and showed 22 trades at -$2.02, while the UTC day beside it
+    // held 8 trades at +$6.14. The owner read the minus sign and asked whether
+    // the day's changes had made things worse. They had not; the two cards
+    // simply did not mean the same thing by "today".
+    //
+    // Midnight UTC is also the boundary the bot's daily loss allowance resets
+    // on, so this page's "today" is now the bot's own day.
+    botFetch<Analytics>("/api/analytics?period=day"),
     botFetch<{ events: ActivityEvent[] }>("/api/activity"),
   ]);
 
