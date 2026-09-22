@@ -39,6 +39,8 @@ const LABELS: Record<string, string> = {
   reentryCooldownHours: "Re-entry cooldown after any close (hours)",
   stopLimitOffsetPct: "Stop-limit offset",
   takeProfitRMultiple: "Take profit (× risk)",
+  takeProfitRoiOnMargin: "Take profit — target return on margin",
+  takeProfitMinR: "Take profit — floor (× risk)",
   trailAtrMultiple: "Trailing stop (× ATR)",
   losingMaxAgeHours: "Max hold — losing, fallback (hours)",
   winningMaxAgeHours: "Max hold — winning, fallback (hours)",
