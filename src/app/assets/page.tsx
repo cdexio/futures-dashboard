@@ -16,7 +16,10 @@ export default async function AssetsPage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  const { days = "30" } = await searchParams;
+  // Seven days by default, for the same reason as the other two pages: the
+  // 30-day window costs several seconds of a page that cannot paint until it
+  // arrives, and nobody chose it.
+  const { days = "7" } = await searchParams;
   const [assets, account] = await Promise.all([
     botFetch<Assets>(`/api/assets?days=${days}`),
     botFetch<AccountSnapshot>("/api/account"),

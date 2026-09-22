@@ -21,7 +21,12 @@ export default async function HistoryPage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  const { days = "30" } = await searchParams;
+  // SEVEN DAYS, not thirty. Measured 2026-09-22 against the live API:
+  // `history?days=7` answers in 0.56 s, `days=30` in 1.9 s and `days=90` in
+  // 5.1 s. The longer windows are one click away and cached for fifteen
+  // minutes once somebody asks; a default is what a reader pays for without
+  // deciding to.
+  const { days = "7" } = await searchParams;
   const { trades } = await botFetch<{ trades: ClosedTrade[] }>(`/api/history?days=${days}`);
 
   const net = trades.reduce((sum, t) => sum + t.netPnl, 0);

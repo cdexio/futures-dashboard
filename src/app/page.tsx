@@ -1,6 +1,7 @@
-import { Activity, Percent, Target, TrendingUp, Wallet } from "lucide-react";
+import { Suspense } from "react";
 
 import { DailyPnlChart, EquityChart, SymbolChart } from "@/components/charts";
+import { SkeletonChart, SkeletonStatCells, SkeletonStats } from "@/components/skeleton";
 import { Card, EmptyState, Gauge, LiveDot, Reveal, SectionTitle, Stat } from "@/components/ui";
 import { botFetch, type Analytics, type AccountSnapshot, type Limits } from "@/lib/bot-api";
 import { TONE_CLASS, duration, money, percent, tone } from "@/lib/format";
@@ -9,24 +10,51 @@ import { TONE_CLASS, duration, money, percent, tone } from "@/lib/format";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+/**
+ * SEVEN DAYS, not thirty.
+ *
+ * Measured against the live API on 2026-09-22: `analytics?days=7` answers in
+ * 0.88 s and `analytics?days=30` in 7.4 s — and the 30-day call was the one
+ * that returned 500 when Binance's per-IP allowance had been spent. Three of
+ * the five pages defaulted to 30, so the expensive answer was what every
+ * reader got before choosing anything.
+ *
+ * The longer windows are one click away and cached for fifteen minutes once
+ * somebody asks for them. A default is what a reader pays for without
+ * deciding to.
+ */
+const DEFAULT_DAYS = "7";
+
+const RANGES = [
+  { label: "7D", value: "7" },
+  { label: "30D", value: "30" },
+  { label: "90D", value: "90" },
+];
+
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  const { days = "30" } = await searchParams;
-  const [analytics, account, limits] = await Promise.all([
-    botFetch<Analytics>(`/api/analytics?days=${days}`),
+  const { days = DEFAULT_DAYS } = await searchParams;
+
+  // ONLY THE CHEAP READS ARE AWAITED HERE. The account and the limits answer
+  // in about 0.3 s each; analytics walks every fill in the window and took
+  // 7.4 s at 30 days. Awaiting all three together meant the whole page — the
+  // balance, the daily allowance, the navigation highlight — waited for the
+  // slowest of them, and with no loading boundary the browser showed the
+  // PREVIOUS page, frozen, for the duration.
+  //
+  // Analytics is handed to a Suspense island below instead. The promise is
+  // created HERE, before the await, so it is already in flight while these
+  // two are fetched rather than starting after them.
+  const analyticsPromise = botFetch<Analytics>(`/api/analytics?days=${days}`);
+  const [account, limits] = await Promise.all([
     botFetch<AccountSnapshot>("/api/account"),
     botFetch<Limits>("/api/limits"),
   ]);
 
-  const p = analytics.performance;
-  const ranges = [
-    { label: "7D", value: "7" },
-    { label: "30D", value: "30" },
-    { label: "90D", value: "90" },
-  ];
+  const ranges = RANGES;
 
   return (
     <div className="space-y-8">
@@ -59,8 +87,11 @@ export default async function DashboardPage({
         </div>
       </Reveal>
 
-      {/* The hero row. Equity first because it is the only number that answers
-          "how much do I have"; everything else explains how it got there. */}
+      {/* The hero row, split by WHERE ITS NUMBERS COME FROM rather than by
+          what they mean. Equity and unrealized are on the account snapshot
+          and are already here; net PnL and ROI need the window's fills, so
+          they arrive with the rest of the analytics. Keeping them together
+          would have made the balance wait for the history. */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="Account equity"
@@ -71,29 +102,16 @@ export default async function DashboardPage({
           {money(account.equity)}
         </Stat>
         <Stat
-          label="Net PnL"
-          delay={0.06}
-          sub={`${money(p.grossPnl, { signed: true })} gross · ${money(Math.abs(p.fees))} fees`}
-          className={TONE_CLASS[tone(p.netPnl)]}
-        >
-          {money(p.netPnl, { signed: true })}
-        </Stat>
-        <Stat
-          label="ROI"
-          delay={0.1}
-          sub={`on ${money(analytics.openingEquity)} at period start`}
-          className={TONE_CLASS[tone(p.roi)]}
-        >
-          {percent(p.roi, { signed: true })}
-        </Stat>
-        <Stat
           label="Unrealized"
-          delay={0.14}
+          delay={0.06}
           sub={`${account.positions.length} open position${account.positions.length === 1 ? "" : "s"}`}
           className={TONE_CLASS[tone(account.unrealizedPnl)]}
         >
           {money(account.unrealizedPnl, { signed: true })}
         </Stat>
+        <Suspense fallback={<SkeletonStatCells count={2} />}>
+          <HeadlinePnl promise={analyticsPromise} />
+        </Suspense>
       </div>
 
       {/* Today's allowance. Above the charts because it is the only thing on
@@ -136,6 +154,64 @@ export default async function DashboardPage({
         </Card>
       </Reveal>
 
+      <Suspense
+        fallback={
+          <>
+            <SkeletonChart />
+            <div className="grid gap-4 lg:grid-cols-2">
+              <SkeletonChart />
+              <SkeletonChart />
+            </div>
+            <SkeletonStats />
+          </>
+        }
+      >
+        <AnalyticsSection promise={analyticsPromise} />
+      </Suspense>
+    </div>
+  );
+}
+
+/**
+ * The two headline numbers that need the window's whole history.
+ *
+ * Awaiting the promise INSIDE a Suspense boundary is what lets the rest of
+ * the page paint without it. The promise itself was started by the page
+ * before it awaited anything, so this is not a sequential second fetch — it
+ * has been in flight the whole time.
+ */
+async function HeadlinePnl({ promise }: { promise: Promise<Analytics> }) {
+  const analytics = await promise;
+  const p = analytics.performance;
+  return (
+    <>
+      <Stat
+        label="Net PnL"
+        delay={0.1}
+        sub={`${money(p.grossPnl, { signed: true })} gross · ${money(Math.abs(p.fees))} fees`}
+        className={TONE_CLASS[tone(p.netPnl)]}
+      >
+        {money(p.netPnl, { signed: true })}
+      </Stat>
+      <Stat
+        label="ROI"
+        delay={0.14}
+        sub={`on ${money(analytics.openingEquity)} at period start`}
+        className={TONE_CLASS[tone(p.roi)]}
+      >
+        {percent(p.roi, { signed: true })}
+      </Stat>
+    </>
+  );
+}
+
+/** Everything below the allowance card: charts and the performance table. */
+async function AnalyticsSection({ promise }: { promise: Promise<Analytics> }) {
+  const analytics = await promise;
+  const p = analytics.performance;
+
+  return (
+    <>
       <Reveal delay={0.05}>
         <Card className="p-6" hoverable={false}>
           <SectionTitle
@@ -217,6 +293,6 @@ export default async function DashboardPage({
           {duration(p.averageDurationMinutes)}
         </Stat>
       </div>
-    </div>
+    </>
   );
 }
