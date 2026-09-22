@@ -1,7 +1,8 @@
 import { Lock } from "lucide-react";
 
+import { AiPanel } from "@/components/ai-panel";
 import { Badge, Card, Reveal, SectionTitle } from "@/components/ui";
-import { botFetch, type Settings } from "@/lib/bot-api";
+import { botFetch, type AiStatus, type Settings } from "@/lib/bot-api";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -119,7 +120,14 @@ function Group({
 }
 
 export default async function SettingsPage() {
-  const settings = await botFetch<Settings>("/api/settings");
+  const [settings, ai] = await Promise.all([
+    botFetch<Settings>("/api/settings"),
+    // Null rather than a thrown page. The validator's panel is the one part
+    // of this page that talks to a second service, and a settings page that
+    // 500s because a side panel is unreachable is worse than one that shows
+    // the rules and says the panel is unavailable.
+    botFetch<AiStatus>("/api/ai").catch(() => null),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -148,7 +156,23 @@ export default async function SettingsPage() {
             Changes go through <span className="tabular">.env</span> and a restart, which leaves a
             trail — editing arrives once the agent is settled.
           </p>
+          <p className="text-[var(--color-ink-muted)] mt-2 text-xs leading-relaxed">
+            The one control below is an exception on purpose. Switching the AI validator on or off
+            changes no size, no limit and no rule — it only decides whether the bot asks a model
+            for a second opinion. That is the same category as the kill switch, not the same
+            category as these values.
+          </p>
         </div>
+      </Reveal>
+
+      <Reveal delay={0.035}>
+        <Card className="p-6" hoverable={false}>
+          <SectionTitle
+            title="AI validator"
+            hint="A second opinion on each candidate, and what it costs to ask."
+          />
+          <AiPanel initial={ai} />
+        </Card>
       </Reveal>
 
       <div className="grid gap-4 lg:grid-cols-2">

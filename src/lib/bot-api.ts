@@ -176,9 +176,78 @@ export type ActivityEvent = {
   level: "info" | "warning" | "error";
   /** A fixed set the dashboard styles by category, so a kind added later
    *  arrives as "info" and is still shown rather than silently dropped. */
-  kind: "entry" | "exit" | "trail" | "protect" | "reject" | "cycle" | "signal" | "risk" | "error" | "info";
+  kind:
+    | "entry"
+    | "exit"
+    | "trail"
+    | "protect"
+    | "reject"
+    | "cycle"
+    | "signal"
+    | "risk"
+    | "error"
+    | "info"
+    /** The validator. Kept as its own kind rather than folded into "info"
+     *  because the Live card splits the feed on it, and because an AI line
+     *  and an engine line are two different claims about the same trade. */
+    | "ai";
   message: string;
   symbol: string | null;
+};
+
+/** One candidate kept warm because it ran out of slots, not out of merit.
+ *
+ *  NO PRICE, and the omission is the design rather than an oversight: a
+ *  candidate shelved two hours ago and shown with its two-hour-old entry is
+ *  how somebody comes to act on a stale level. What comes back is an identity
+ *  and a reason; the engine recomputes everything else before acting. */
+export type WatchEntry = {
+  symbol: string;
+  side: "long" | "short";
+  strategy: string;
+  reason: string;
+  score: number | null;
+  since: string;
+  until: string;
+  secondsLeft: number;
+};
+
+/** The validator's state, spend and recent verdicts. */
+export type AiStatus = {
+  /** What is true right now — the runtime switch. */
+  enabled: boolean;
+  /** What `.env` will say after the next restart. Shown beside `enabled` so a
+   *  switch that a restart undid is visible rather than mysterious. */
+  configured: boolean;
+  /** Watching only. Not settable from here: moving the validator from
+   *  observing to deciding changes what the bot trades. */
+  shadow: boolean;
+  model: string;
+  batchSize: number;
+  timeoutSec: number;
+  quota: {
+    spentToday: number;
+    budgetUsd: number;
+    /** null when no ceiling is set — a progress bar at 0% would read as
+     *  "plenty left", and no ceiling means there is no such thing. */
+    usedShare: number | null;
+    calls: number;
+    cacheHitRate: number;
+    usdPerCall: number;
+    inputTokens: number;
+    outputTokens: number;
+    day: string;
+  };
+  decisions: {
+    at: string;
+    symbol: string;
+    side: "long" | "short";
+    strategy: string;
+    verdict: "buy" | "skip" | "watch";
+    score: number | null;
+    reason: string;
+    acted: boolean;
+  }[];
 };
 
 /** What `/api/live` returns: one instant, both halves. */

@@ -1,5 +1,6 @@
 import { LiveFeed } from "@/components/live-feed";
 import { LiveTrade } from "@/components/live-trade";
+import { WatchList } from "@/components/watch-list";
 import { Card, Reveal } from "@/components/ui";
 import {
   botFetch,
@@ -7,6 +8,7 @@ import {
   type ActivityEvent,
   type Analytics,
   type Limits,
+  type WatchEntry,
 } from "@/lib/bot-api";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +28,7 @@ export const revalidate = 0;
  * is no reason to pay for that every four seconds.
  */
 export default async function TradePage() {
-  const [account, limits, analytics, activity] = await Promise.all([
+  const [account, limits, analytics, activity, aiActivity, watch] = await Promise.all([
     botFetch<AccountSnapshot>("/api/account"),
     botFetch<Limits>("/api/limits"),
     // `period=day` is MIDNIGHT UTC, not a rolling 24 hours.
@@ -42,7 +44,13 @@ export default async function TradePage() {
     // Midnight UTC is also the boundary the bot's daily loss allowance resets
     // on, so this page's "today" is now the bot's own day.
     botFetch<Analytics>("/api/analytics?period=day"),
-    botFetch<{ events: ActivityEvent[] }>("/api/activity"),
+    botFetch<{ events: ActivityEvent[] }>("/api/activity?source=engine"),
+    // Seeded separately so the AI tab has rows the moment it is opened. The
+    // validator speaks a few times an hour against the position manager's
+    // every fifteen seconds, so a shared page of activity holds almost none
+    // of it — which is why the split happens on the bot API rather than here.
+    botFetch<{ events: ActivityEvent[] }>("/api/activity?source=ai"),
+    botFetch<{ watching: WatchEntry[] }>("/api/watch"),
   ]);
 
   return (
@@ -61,11 +69,18 @@ export default async function TradePage() {
           closedToday={analytics.performance.trades}
           realisedToday={analytics.performance.netPnl}
         />
-        <Reveal delay={0.08}>
-          <Card className="p-6" hoverable={false}>
-            <LiveFeed initial={activity.events} />
-          </Card>
-        </Reveal>
+        <div className="space-y-6">
+          <Reveal delay={0.08}>
+            <Card className="p-6" hoverable={false}>
+              <LiveFeed initial={activity.events} initialAi={aiActivity.events} />
+            </Card>
+          </Reveal>
+          <Reveal delay={0.12}>
+            <Card className="p-6" hoverable={false}>
+              <WatchList initial={watch.watching} />
+            </Card>
+          </Reveal>
+        </div>
       </div>
     </div>
   );
