@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { OctagonX, ShieldAlert, ShieldCheck } from "lucide-react";
 
+import { KillSwitch } from "@/components/kill-switch";
 import { Badge, Card, EmptyState, Gauge, LiveDot, Reveal, SectionTitle, Stat } from "@/components/ui";
 import type { LiveSnapshot, Position } from "@/lib/bot-api";
 import { useLive } from "@/lib/use-live";
@@ -39,17 +40,20 @@ export function LiveTrade({
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div className="text-[var(--color-ink-muted)] text-xs">
-          Updated {utcTime(new Date(at).toISOString())} UTC
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="text-[var(--color-ink-muted)] text-xs">
+            Updated {utcTime(new Date(at).toISOString())} UTC
+          </div>
+          {stale ? (
+            <span className="text-xs text-[var(--color-warning)]">
+              Reconnecting — showing the last good reading
+            </span>
+          ) : (
+            <LiveDot label="Live" />
+          )}
         </div>
-        {stale ? (
-          <span className="text-xs text-[var(--color-warning)]">
-            Reconnecting — showing the last good reading
-          </span>
-        ) : (
-          <LiveDot label="Live" />
-        )}
+        <KillSwitch engaged={limits.killSwitch} />
       </div>
 
       {(limits.tradingHalted || limits.killSwitch) && <HaltBanner limits={limits} />}
