@@ -64,8 +64,13 @@ export default async function TradePage() {
         </p>
       </Reveal>
 
-      <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <div className="space-y-6">
+      {/* `min-w-0` on both columns, and `minmax(0, …)` in the template: a grid
+          item's automatic minimum is its content's min-content width, so the
+          open-orders table (520px, scrollable inside its own box) widened the
+          whole column past a phone's screen and pushed every card off its
+          right edge. With a zero minimum the table scrolls, the page does not. */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-6">
           <LiveTrade
             seed={{ account, limits }}
             realisedSlot={
@@ -83,7 +88,7 @@ export default async function TradePage() {
             </Card>
           </Reveal>
         </div>
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Reveal delay={0.08}>
             <Card className="p-6" hoverable={false}>
               <Suspense fallback={<SkeletonTable rows={6} />}>

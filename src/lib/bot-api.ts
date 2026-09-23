@@ -303,6 +303,9 @@ export type ScanSummary = {
   finishedAt?: string;
   skipped?: string;
   universe?: number;
+  /** When the current 300 were chosen, and how often they are chosen again. */
+  universeChosenAt?: string | null;
+  universeRefreshHours?: number;
   withData?: number;
   missingData?: number;
   /** Why each symbol produced nothing on the newest bar, by the first rule
@@ -370,4 +373,6 @@ export type Settings = {
   universe: Record<string, string | number | string[]>;
   data: Record<string, string | number>;
   credentials: Record<string, string>;
+  /** Every setting the process runs under, secrets reduced to presence. */
+  all?: Record<string, unknown>;
 };

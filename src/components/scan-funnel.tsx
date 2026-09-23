@@ -144,6 +144,13 @@ export function ScanFunnel() {
         </p>
       ) : (
         <div className="space-y-5">
+          {last.universeChosenAt && (
+            <p className="text-[var(--color-ink-muted)] -mt-2 text-[11px]">
+              The {universe} pairs were chosen {relative(last.universeChosenAt)} by recent turnover;
+              chosen again every {last.universeRefreshHours ?? 8}h, scanned every 30-minute bar in
+              between.
+            </p>
+          )}
           <div className="space-y-2">
             <Stage label="Pairs in the universe" value={universe} of={universe} />
             <Stage

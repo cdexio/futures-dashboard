@@ -1,6 +1,7 @@
 import { Lock } from "lucide-react";
 
 import { AiPanel } from "@/components/ai-panel";
+import { AllSettings } from "@/components/all-settings";
 import { Badge, Card, Reveal, SectionTitle } from "@/components/ui";
 import { botFetch, type AiStatus, type Settings } from "@/lib/bot-api";
 
@@ -192,7 +193,7 @@ export default async function SettingsPage() {
         />
         <Group
           title="Signals"
-          hint="Which signals may become trades. Measured 2026-09-22: shorts lost on all four strategies, momentum was the worst long route, and refusing entries above 60% of the 24h range was the single largest improvement."
+          hint="Which signals may become trades. With the regime filter off (2026-09-23), every strategy may fire in every market, in its own direction; the score gate and the AI validator decide which are worth taking."
           values={settings.signals}
           delay={0.12}
         />
@@ -235,6 +236,18 @@ export default async function SettingsPage() {
           </Card>
         </Reveal>
       </div>
+
+      {settings.all && (
+        <Reveal delay={0.3}>
+          <Card className="p-6" hoverable={false}>
+            <SectionTitle
+              title="All settings"
+              hint="The complete list from engine/config.py, as the running process sees it — including the ones the groups above do not explain. Secrets show only whether they are set."
+            />
+            <AllSettings values={settings.all} />
+          </Card>
+        </Reveal>
+      )}
     </div>
   );
 }
