@@ -141,5 +141,18 @@ function toTarget(trade: ClosedTrade): DetailTarget {
     fees: trade.commission,
     funding: trade.funding,
     durationMinutes: trade.durationMinutes,
+    strategy: trade.strategy
+      ? trade.routeRecorded === false
+        ? `${trade.strategy} (unrecorded)`
+        : trade.strategy
+      : null,
+    score: trade.score ?? null,
+    leverage: trade.leverage ?? null,
+    marginUsd: trade.marginUsd ?? null,
+    stopPrice: trade.stopPrice ?? null,
+    maxHoldHours: trade.maxHoldHours ?? null,
+    aiModel: trade.aiModel ?? null,
+    aiVerdict: trade.aiVerdict ?? null,
+    aiReason: trade.aiReason ?? null,
   };
 }

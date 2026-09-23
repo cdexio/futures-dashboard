@@ -47,6 +47,11 @@ export type DetailTarget = {
   fees?: number | null;
   funding?: number | null;
   durationMinutes?: number | null;
+  /** The acted verdict, carried by a closed trade itself — the verdict list
+   *  holds only the latest 200, so an older trade would find nothing there. */
+  aiModel?: string | null;
+  aiVerdict?: string | null;
+  aiReason?: string | null;
 };
 
 const WIB = new Intl.DateTimeFormat("id-ID", {
@@ -190,7 +195,28 @@ export function PositionDetail({
   onClose: () => void;
 }) {
   const [candles, setCandles] = useState<Candle[]>([]);
-  const [verdict, setVerdict] = useState<AiStatus["decisions"][number] | null>(null);
+  const [listed, setVerdict] = useState<AiStatus["decisions"][number] | null>(null);
+  // The verdict list first (it carries levels); the trade's own joined
+  // verdict when the list no longer reaches back to it.
+  const verdict: AiStatus["decisions"][number] | null =
+    listed ??
+    (target?.aiVerdict
+      ? {
+          at: target.openedAt ?? "",
+          symbol: target.symbol,
+          side: target.side,
+          strategy: target.strategy ?? "",
+          verdict: target.aiVerdict as "buy" | "skip" | "watch",
+          score: target.score ?? null,
+          reason: target.aiReason ?? "",
+          acted: true,
+          entry: null,
+          takeProfit: null,
+          stopLoss: null,
+          maxHoldHours: null,
+          model: (target.aiModel as "claude" | "deepseek" | undefined) ?? undefined,
+        }
+      : null);
   const [loading, setLoading] = useState(false);
   // 30m first because it is the bar the engine decided on. The others are
   // offered because a level that looks arbitrary on the trading bar often sits

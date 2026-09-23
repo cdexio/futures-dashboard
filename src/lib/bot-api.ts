@@ -164,6 +164,19 @@ export type ClosedTrade = {
   funding: number;
   netPnl: number;
   roi: number;
+  /** Provenance, joined from the entry record and the acted verdict. A
+   *  trade with no entry record counts as momentum (`routeRecorded` false). */
+  strategy?: string | null;
+  routeRecorded?: boolean;
+  score?: number | null;
+  leverage?: number | null;
+  marginUsd?: number | null;
+  stopPrice?: number | null;
+  maxHoldHours?: number | null;
+  rMultiple?: number | null;
+  aiModel?: string | null;
+  aiVerdict?: string | null;
+  aiReason?: string | null;
 };
 
 export type Performance = {
