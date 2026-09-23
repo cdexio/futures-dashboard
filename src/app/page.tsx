@@ -1,9 +1,16 @@
 import { Suspense } from "react";
 
 import { DailyPnlChart, EquityChart, SymbolChart } from "@/components/charts";
+import { RouteCards } from "@/components/route-cards";
 import { SkeletonChart, SkeletonStatCells, SkeletonStats } from "@/components/skeleton";
 import { Card, EmptyState, Gauge, LiveDot, Reveal, SectionTitle, Stat } from "@/components/ui";
-import { botFetch, type Analytics, type AccountSnapshot, type Limits } from "@/lib/bot-api";
+import {
+  botFetch,
+  type Analytics,
+  type AccountSnapshot,
+  type Limits,
+  type RouteStats,
+} from "@/lib/bot-api";
 import { TONE_CLASS, duration, money, percent, tone } from "@/lib/format";
 
 // The account moves while this page is open, so nothing here may be cached.
@@ -49,6 +56,9 @@ export default async function DashboardPage({
   // created HERE, before the await, so it is already in flight while these
   // two are fetched rather than starting after them.
   const analyticsPromise = botFetch<Analytics>(`/api/analytics?days=${days}`);
+  // Started here rather than awaited, so it runs alongside the analytics read
+  // instead of after it.
+  const routesPromise = botFetch<{ routes: RouteStats[] }>(`/api/routes?days=${days}`);
   const [account, limits] = await Promise.all([
     botFetch<AccountSnapshot>("/api/account"),
     botFetch<Limits>("/api/limits"),
@@ -168,8 +178,29 @@ export default async function DashboardPage({
       >
         <AnalyticsSection promise={analyticsPromise} />
       </Suspense>
+
+      {/* Its own Suspense boundary, not folded into the analytics one. The
+          route split needs the trade history AND a database read, so pairing
+          it with the charts would hold the charts back for the slower of the
+          two — and the charts are what somebody opens this page for. */}
+      <Suspense fallback={<SkeletonStats />}>
+        <RouteSection promise={routesPromise} days={days} />
+      </Suspense>
     </div>
   );
+}
+
+async function RouteSection({
+  promise,
+  days,
+}: {
+  promise: Promise<{ routes: RouteStats[] }>;
+  days: number | string;
+}) {
+  // A failed route read must not take the dashboard down: it is the newest
+  // panel on the page and the least load-bearing.
+  const data = await promise.catch(() => ({ routes: [] as RouteStats[] }));
+  return <RouteCards routes={data.routes} days={days} />;
 }
 
 /**

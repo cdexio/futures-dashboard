@@ -7,6 +7,7 @@ import {
   type AccountSnapshot,
   type ActivityEvent,
   type Analytics,
+  type AiStatus,
   type Limits,
   type WatchEntry,
 } from "@/lib/bot-api";
@@ -28,7 +29,7 @@ export const revalidate = 0;
  * is no reason to pay for that every four seconds.
  */
 export default async function TradePage() {
-  const [account, limits, analytics, activity, aiActivity, watch] = await Promise.all([
+  const [account, limits, analytics, activity, aiStatus, watch] = await Promise.all([
     botFetch<AccountSnapshot>("/api/account"),
     botFetch<Limits>("/api/limits"),
     // `period=day` is MIDNIGHT UTC, not a rolling 24 hours.
@@ -45,11 +46,12 @@ export default async function TradePage() {
     // on, so this page's "today" is now the bot's own day.
     botFetch<Analytics>("/api/analytics?period=day"),
     botFetch<{ events: ActivityEvent[] }>("/api/activity?source=engine"),
-    // Seeded separately so the AI tab has rows the moment it is opened. The
-    // validator speaks a few times an hour against the position manager's
-    // every fifteen seconds, so a shared page of activity holds almost none
-    // of it — which is why the split happens on the bot API rather than here.
-    botFetch<{ events: ActivityEvent[] }>("/api/activity?source=ai"),
+    // The AI tab renders STRUCTURED decisions, not parsed log lines: the
+    // validator's verdicts exist as columns — verdict, score, reason, whether
+    // anyone acted — and flattening them into sentences to re-parse would
+    // throw all of that away. Null rather than a thrown page if it is
+    // unreachable; the engine tab is the one that must always render.
+    botFetch<AiStatus>("/api/ai").catch(() => null),
     botFetch<{ watching: WatchEntry[] }>("/api/watch"),
   ]);
 
@@ -72,7 +74,7 @@ export default async function TradePage() {
         <div className="space-y-6">
           <Reveal delay={0.08}>
             <Card className="p-6" hoverable={false}>
-              <LiveFeed initial={activity.events} initialAi={aiActivity.events} />
+              <LiveFeed initial={activity.events} initialAi={aiStatus} />
             </Card>
           </Reveal>
           <Reveal delay={0.12}>

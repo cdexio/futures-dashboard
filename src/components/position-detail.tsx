@@ -1,0 +1,311 @@
+"use client";
+
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState } from "react";
+import { X } from "lucide-react";
+
+import { CandleChart } from "@/components/candle-chart";
+import { Badge } from "@/components/ui";
+import type { AiStatus, Candle } from "@/lib/bot-api";
+
+/** What the modal needs. Deliberately not `Position`, so a closed trade from
+ *  the history page can open the same panel — the two share a symbol, a side,
+ *  an entry and some levels, and duplicating the whole component for the
+ *  differences would guarantee they drift. */
+export type DetailTarget = {
+  symbol: string;
+  side: "long" | "short";
+  entryPrice: number;
+  exitPrice?: number | null;
+  markPrice?: number | null;
+  stopPrice?: number | null;
+  takeProfitPrice?: number | null;
+  strategy?: string | null;
+  score?: number | null;
+  maxHoldHours?: number | null;
+  holdRemainingHours?: number | null;
+  leverage?: number | null;
+  openedAt?: string | null;
+  closedAt?: string | null;
+  unrealizedPnl?: number | null;
+  realizedPnl?: number | null;
+  notional?: number | null;
+};
+
+function money(v: number | null | undefined, digits = 2): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  return `${v < 0 ? "−" : ""}$${Math.abs(v).toFixed(digits)}`;
+}
+
+function hours(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  return `${v.toFixed(1)}h`;
+}
+
+/**
+ * Everything known about one trade, in one place.
+ *
+ * WHAT IT ANSWERS THAT THE ROW CANNOT: which route opened this, what the
+ * engine scored it, what the validator said about it, how long it may run, and
+ * where its levels sit against the actual price. Those live in four different
+ * places — the exchange, `position_entries`, `ai_decisions` and the lake — and
+ * a reader should not have to hold four pages open to put them together.
+ *
+ * The chart and the verdict are fetched when the modal OPENS, not with the
+ * page. A candle series per position on a page listing five of them is five
+ * lake reads nobody asked for.
+ */
+export function PositionDetail({
+  target,
+  onClose,
+}: {
+  target: DetailTarget | null;
+  onClose: () => void;
+}) {
+  const [candles, setCandles] = useState<Candle[]>([]);
+  const [verdict, setVerdict] = useState<AiStatus["decisions"][number] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!target) return;
+    let alive = true;
+    setLoading(true);
+    setCandles([]);
+    setVerdict(null);
+
+    void (async () => {
+      try {
+        const [candleRes, aiRes] = await Promise.all([
+          fetch(`/api/candles?symbol=${encodeURIComponent(target.symbol)}&interval=30m`, {
+            cache: "no-store",
+          }),
+          fetch("/api/ai", { cache: "no-store" }),
+        ]);
+        if (alive && candleRes.ok) {
+          const body = (await candleRes.json()) as { candles: Candle[] };
+          setCandles(body.candles ?? []);
+        }
+        if (alive && aiRes.ok) {
+          const body = (await aiRes.json()) as AiStatus;
+          // The most recent verdict for this symbol and side. A symbol judged
+          // several times has several rows, and the one that describes THIS
+          // position is the latest.
+          const match = body.decisions.find(
+            (d) => d.symbol === target.symbol && d.side === target.side,
+          );
+          setVerdict(match ?? null);
+        }
+      } catch {
+        /* the panel renders without the chart rather than not at all */
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [target]);
+
+  // Escape closes. A modal that can only be dismissed by hitting a small X is
+  // a modal that traps somebody on a phone.
+  useEffect(() => {
+    if (!target) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [target, onClose]);
+
+  const levels = target
+    ? [
+        {
+          price: target.entryPrice,
+          label: "entry",
+          colour: "var(--color-ink-secondary)",
+        },
+        ...(target.stopPrice
+          ? [{ price: target.stopPrice, label: "stop", colour: "var(--color-loss)", dashed: true }]
+          : []),
+        ...(target.takeProfitPrice
+          ? [
+              {
+                price: target.takeProfitPrice,
+                label: "target",
+                colour: "var(--color-profit)",
+                dashed: true,
+              },
+            ]
+          : []),
+        ...(target.exitPrice
+          ? [{ price: target.exitPrice, label: "exit", colour: "var(--color-solana-bright)" }]
+          : []),
+      ]
+    : [];
+
+  const pnl = target?.realizedPnl ?? target?.unrealizedPnl ?? null;
+
+  return (
+    <AnimatePresence>
+      {target && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.99 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="border-[var(--color-border)] max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border bg-[var(--color-surface-raised)] p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-semibold tracking-tight">{target.symbol}</h2>
+                  <Badge intent={target.side}>{target.side}</Badge>
+                  {target.strategy ? (
+                    <Badge intent="neutral">{target.strategy}</Badge>
+                  ) : (
+                    <span className="text-[var(--color-ink-muted)] text-[10px]">
+                      route unknown
+                    </span>
+                  )}
+                  {target.leverage ? (
+                    <span className="text-[var(--color-ink-muted)] text-[11px]">
+                      {target.leverage}x
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-[var(--color-ink-muted)] mt-1 text-[11px]">
+                  30-minute candles — the bar the engine decided on.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="rounded-lg p-1.5 text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-surface-overlay)] hover:text-[var(--color-ink)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mb-5">
+              {loading ? (
+                <div
+                  className="grid place-items-center rounded-xl border border-dashed border-[var(--color-border)] text-xs text-[var(--color-ink-muted)]"
+                  style={{ height: 280 }}
+                >
+                  Reading the lake…
+                </div>
+              ) : (
+                <CandleChart candles={candles} levels={levels} />
+              )}
+            </div>
+
+            <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4">
+              <div>
+                <dt className="text-[var(--color-ink-muted)]">Entry</dt>
+                <dd className="tabular mt-0.5 font-medium">{target.entryPrice}</dd>
+              </div>
+              <div>
+                <dt className="text-[var(--color-ink-muted)]">
+                  {target.exitPrice ? "Exit" : "Mark"}
+                </dt>
+                <dd className="tabular mt-0.5 font-medium">
+                  {target.exitPrice ?? target.markPrice ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--color-ink-muted)]">Engine score</dt>
+                <dd className="mt-0.5 font-medium">
+                  {target.score !== null && target.score !== undefined
+                    ? target.score.toFixed(3)
+                    : "not recorded"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--color-ink-muted)]">
+                  {target.closedAt ? "Result" : "Unrealised"}
+                </dt>
+                <dd
+                  className="mt-0.5 font-medium"
+                  style={{
+                    color:
+                      pnl === null
+                        ? undefined
+                        : pnl >= 0
+                          ? "var(--color-profit)"
+                          : "var(--color-loss)",
+                  }}
+                >
+                  {money(pnl)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--color-ink-muted)]">Max hold</dt>
+                <dd className="mt-0.5 font-medium">{hours(target.maxHoldHours)}</dd>
+              </div>
+              <div>
+                <dt className="text-[var(--color-ink-muted)]">Time left</dt>
+                <dd className="mt-0.5 font-medium">
+                  {target.closedAt ? "closed" : hours(target.holdRemainingHours)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--color-ink-muted)]">Stop</dt>
+                <dd className="tabular mt-0.5 font-medium">{target.stopPrice ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-[var(--color-ink-muted)]">Target</dt>
+                <dd className="tabular mt-0.5 font-medium">{target.takeProfitPrice ?? "—"}</dd>
+              </div>
+            </dl>
+
+            <div className="border-[var(--color-border)] border-t pt-4">
+              <p className="mb-2 text-sm font-medium">What the AI said</p>
+              {verdict ? (
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      intent={
+                        verdict.verdict === "buy"
+                          ? "good"
+                          : verdict.verdict === "watch"
+                            ? "warn"
+                            : "neutral"
+                      }
+                    >
+                      {verdict.verdict}
+                    </Badge>
+                    {!verdict.acted && (
+                      <span className="text-[var(--color-ink-muted)] text-[10px]">
+                        not acted on — the validator is watching only
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[var(--color-ink-secondary)] mt-2 text-xs leading-relaxed">
+                    {verdict.reason || "No reason given."}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[var(--color-ink-muted)] text-xs leading-relaxed">
+                  The validator never saw this one. It reviews a limited batch per cycle, so a
+                  candidate the engine took can have no verdict at all — which is different from
+                  having been refused.
+                </p>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

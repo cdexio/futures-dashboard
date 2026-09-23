@@ -4,8 +4,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { AlertTriangle, CircleAlert, Info, Sparkles } from "lucide-react";
 
+import { AiVerdicts } from "@/components/ai-verdicts";
 import { LiveDot } from "@/components/ui";
-import type { ActivityEvent } from "@/lib/bot-api";
+import type { ActivityEvent, AiStatus } from "@/lib/bot-api";
 import { relative } from "@/lib/format";
 
 const ICON = {
@@ -56,36 +57,35 @@ const TABS: { id: Source; label: string; hint: string }[] = [
  */
 export function LiveFeed({
   initial,
-  initialAi = [],
+  initialAi = null,
 }: {
   initial: ActivityEvent[];
-  initialAi?: ActivityEvent[];
+  initialAi?: AiStatus | null;
 }) {
   const [tab, setTab] = useState<Source>("engine");
-  const [feeds, setFeeds] = useState<Record<Source, ActivityEvent[]>>({
-    engine: initial,
-    ai: initialAi,
-  });
+  const [events, setEvents] = useState<ActivityEvent[]>(initial);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    // The ENGINE tab only. The AI tab renders structured rows from the
+    // database rather than parsed log lines — the validator's decisions exist
+    // as columns, so turning them back into sentences to re-parse them would
+    // throw away the verdict, the score and the symbol.
+    if (tab !== "engine") return;
     let alive = true;
     const tick = async () => {
       try {
-        const response = await fetch(`/api/activity?source=${tab}`, { cache: "no-store" });
+        const response = await fetch("/api/activity?source=engine", { cache: "no-store" });
         if (!response.ok) throw new Error(String(response.status));
         const body = (await response.json()) as { events: ActivityEvent[] };
         if (alive) {
-          setFeeds((current) => ({ ...current, [tab]: body.events }));
+          setEvents(body.events);
           setFailed(false);
         }
       } catch {
         if (alive) setFailed(true);
       }
     };
-    // Fetch at once on a tab change rather than waiting out the interval —
-    // otherwise the first five seconds of the AI tab show the rows it had
-    // when the page loaded, which on a quiet hour is nothing at all.
     void tick();
     const timer = setInterval(tick, 5000);
     return () => {
@@ -94,7 +94,6 @@ export function LiveFeed({
     };
   }, [tab]);
 
-  const events = feeds[tab];
   const active = TABS.find((t) => t.id === tab)!;
 
   return (
@@ -150,6 +149,9 @@ export function LiveFeed({
         {active.hint}
       </p>
 
+      {tab === "ai" ? (
+        <AiVerdicts initial={initialAi} />
+      ) : (
       <div className="max-h-[480px] space-y-1.5 overflow-y-auto pr-1">
         <AnimatePresence initial={false}>
           {events.slice(0, 60).map((event, index) => {
@@ -172,9 +174,18 @@ export function LiveFeed({
                   }`}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[var(--color-ink-secondary)] text-xs leading-relaxed break-words">
+                  {/* THE TOKEN, FIRST. The symbol was already in the data and
+                      was never rendered, so "Trailing stop moved from 0.04583
+                      to 0.04588" named no pair at all — a row that says
+                      something happened and refuses to say to what. */}
+                  {event.symbol && (
+                    <span className="mr-2 text-xs font-semibold text-[var(--color-ink)]">
+                      {event.symbol}
+                    </span>
+                  )}
+                  <span className="text-[var(--color-ink-secondary)] text-xs leading-relaxed break-words">
                     {event.message}
-                  </p>
+                  </span>
                   <p className="text-[var(--color-ink-muted)] mt-1 text-[10px]">
                     {relative(event.at)}
                   </p>
@@ -185,12 +196,11 @@ export function LiveFeed({
         </AnimatePresence>
         {!events.length && (
           <p className="text-[var(--color-ink-muted)] px-3 py-8 text-center text-xs">
-            {tab === "ai"
-              ? "The validator has not spoken yet. It reviews candidates once a cycle, and only when there are candidates to review."
-              : "No activity recorded yet."}
+            No activity recorded yet.
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

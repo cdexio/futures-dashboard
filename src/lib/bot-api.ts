@@ -81,6 +81,43 @@ export type Position = {
   protected: boolean;
   openedAt: string | null;
   ageMinutes: number | null;
+  /** Which of the five routes opened this. Null for a position opened before
+   *  the engine recorded provenance, or adopted from an earlier process —
+   *  shown as unknown rather than guessed, because "which route is this"
+   *  answered wrongly is worse than not answered. */
+  strategy: string | null;
+  /** The Phase 5 score at entry. Null means it could not be computed, which
+   *  is a different fact from zero. */
+  score: number | null;
+  /** How long this position is allowed to run, from its signal's strength. */
+  maxHoldHours: number | null;
+  holdRemainingHours: number | null;
+};
+
+/** One candle, in the shape the chart draws. Short keys because a 240-bar
+ *  series repeats them 240 times and this travels to a phone. */
+export type Candle = {
+  t: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
+};
+
+/** What one strategy has actually produced.
+ *
+ *  The engine runs five and the account reports one blended number, so a route
+ *  that loses steadily is invisible inside a book that is roughly flat. */
+export type RouteStats = {
+  route: string;
+  trades: number;
+  wins: number;
+  losses: number;
+  netPnl: number;
+  fees: number;
+  winRate: number;
+  averageTrade: number;
 };
 
 export type AccountSnapshot = {

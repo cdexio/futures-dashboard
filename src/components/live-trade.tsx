@@ -1,9 +1,11 @@
 "use client";
 
 import { motion } from "motion/react";
+import { useState } from "react";
 import { OctagonX, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import { KillSwitch } from "@/components/kill-switch";
+import { PositionDetail } from "@/components/position-detail";
 import { Badge, Card, EmptyState, Gauge, LiveDot, Reveal, SectionTitle, Stat } from "@/components/ui";
 import type { LiveSnapshot, Position } from "@/lib/bot-api";
 import { useLive } from "@/lib/use-live";
@@ -33,6 +35,11 @@ export function LiveTrade({
 }) {
   const { data, stale, at } = useLive<LiveSnapshot>("/api/live", seed, 4000);
   const { account, limits } = data;
+  // Which position's detail panel is open. Held here rather than inside the
+  // card so the modal is a sibling of the grid: nested inside a card it would
+  // inherit that card's stacking context and the backdrop would cover only
+  // the card it came from.
+  const [detail, setDetail] = useState<Position | null>(null);
 
   const dayRoi = limits.dayStartEquity
     ? (limits.currentEquity - limits.dayStartEquity) / limits.dayStartEquity
@@ -137,7 +144,11 @@ export function LiveTrade({
           {account.positions.length ? (
             <div className="grid gap-3 lg:grid-cols-2">
               {account.positions.map((position) => (
-                <PositionCard key={position.symbol} position={position} />
+                <PositionCard
+                  key={position.symbol}
+                  position={position}
+                  onOpen={() => setDetail(position)}
+                />
               ))}
             </div>
           ) : (
@@ -151,6 +162,28 @@ export function LiveTrade({
           </p>
         </Card>
       </Reveal>
+
+      <PositionDetail
+        target={
+          detail && {
+            symbol: detail.symbol,
+            side: detail.side,
+            entryPrice: detail.entryPrice,
+            markPrice: detail.markPrice,
+            stopPrice: detail.stopPrice,
+            takeProfitPrice: detail.takeProfitPrice,
+            strategy: detail.strategy,
+            score: detail.score,
+            maxHoldHours: detail.maxHoldHours,
+            holdRemainingHours: detail.holdRemainingHours,
+            leverage: detail.leverage,
+            openedAt: detail.openedAt,
+            unrealizedPnl: detail.unrealizedPnl,
+            notional: detail.notional,
+          }
+        }
+        onClose={() => setDetail(null)}
+      />
     </div>
   );
 }
@@ -181,16 +214,54 @@ function HaltBanner({ limits }: { limits: LiveSnapshot["limits"] }) {
   );
 }
 
-function PositionCard({ position }: { position: Position }) {
+function PositionCard({
+  position,
+  onOpen,
+}: {
+  position: Position;
+  onOpen?: (position: Position) => void;
+}) {
   const up = position.unrealizedPnl >= 0;
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]/60 p-4 transition-colors hover:border-[var(--color-border-strong)]">
+    <div
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={() => onOpen?.(position)}
+      onKeyDown={(e) => {
+        if (onOpen && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onOpen(position);
+        }
+      }}
+      className={`rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]/60 p-4 transition-colors hover:border-[var(--color-border-strong)] ${
+        onOpen ? "cursor-pointer" : ""
+      }`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold tracking-tight">{position.symbol}</span>
           <Badge intent={position.side === "long" ? "long" : "short"}>{position.side}</Badge>
           {position.leverage && <Badge>{position.leverage}x</Badge>}
+          {/* WHICH IDEA OPENED THIS. Not on the exchange — Binance knows a
+              position, not the route that produced it — so it comes from the
+              engine's own record and is absent for anything opened before
+              that record existed. */}
+          {position.strategy && <Badge intent="neutral">{position.strategy}</Badge>}
+          {position.holdRemainingHours !== null &&
+            position.holdRemainingHours !== undefined && (
+              <span
+                className={`text-[10px] ${
+                  position.holdRemainingHours <= 0.5
+                    ? "text-[var(--color-warning)]"
+                    : "text-[var(--color-ink-muted)]"
+                }`}
+              >
+                {position.holdRemainingHours <= 0
+                  ? "past its time limit"
+                  : `${position.holdRemainingHours.toFixed(1)}h of ${position.maxHoldHours?.toFixed(0)}h left`}
+              </span>
+            )}
           {position.protected ? (
             <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-mint)]">
               <ShieldCheck className="h-3 w-3" /> protected
