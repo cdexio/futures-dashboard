@@ -80,9 +80,10 @@ export function WatchList({ initial }: { initial: WatchEntry[] }) {
       </div>
 
       <p className="text-[var(--color-ink-muted)] mb-4 text-[11px] leading-relaxed">
-        Ideas that passed every filter but ran out of position slots. When a position closes
-        these are reconsidered first — re-scored against the latest candle, never at the price
-        they had when they were shelved.
+        A record, not a queue: the AI&apos;s WATCH verdicts (a level it would rather wait for)
+        and approved buys the runner could not place, with why. Nothing is executed from
+        here — each bar the engine scans again, and a pair that still signals is judged
+        again on the new candle. Entries expire after 1–2 hours.
       </p>
 
       <div className="max-h-[320px] space-y-1.5 overflow-y-auto pr-1">

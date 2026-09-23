@@ -183,24 +183,57 @@ export function ScanFunnel() {
 
           {!!last.candidates?.length && (
             <div>
-              <p className="mb-2 text-xs font-medium">Candidates on this bar</p>
-              <div className="flex flex-wrap gap-2">
-                {last.candidates.map((c) => (
-                  <span
-                    key={`${c.symbol}-${c.side}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-surface-overlay)] px-2 py-1 text-[11px]"
-                  >
-                    <span className="font-semibold">{c.symbol}</span>
-                    <Badge intent={c.side === "long" ? "long" : "short"}>{c.side}</Badge>
-                    <span className="text-[var(--color-ink-muted)]">{c.strategy}</span>
-                    {c.score !== null && (
-                      <span className="text-[var(--color-ink-muted)] tabular">
-                        {c.score.toFixed(3)}
-                      </span>
-                    )}
-                    {last.opened?.includes(c.symbol) && <Badge intent="good">opened</Badge>}
-                  </span>
-                ))}
+              <p className="mb-2 flex items-baseline justify-between text-xs font-medium">
+                <span>Candidates on this bar</span>
+                <span className="text-[var(--color-ink-muted)] text-[10px] font-normal">
+                  {last.candidates.length} · highest score first · scrolls inside
+                </span>
+              </p>
+              {/* A table with its own scroll, not a wall of chips: a busy bar
+                  carried 116 candidates and pushed the rest of the page a
+                  screen and a half down. */}
+              <div className="max-h-72 overflow-auto rounded-lg border border-[var(--color-border)]">
+                <table className="w-full min-w-[360px] text-[11px]">
+                  <thead className="sticky top-0 bg-[var(--color-surface-raised)]">
+                    <tr className="text-[var(--color-ink-muted)] text-left">
+                      <th className="px-3 py-1.5 font-medium">#</th>
+                      <th className="px-3 py-1.5 font-medium">Symbol</th>
+                      <th className="px-3 py-1.5 font-medium">Side</th>
+                      <th className="px-3 py-1.5 font-medium">Route</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Score</th>
+                      <th className="px-3 py-1.5 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...last.candidates]
+                      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+                      .map((c, i) => (
+                        <tr
+                          key={`${c.symbol}-${c.side}`}
+                          className="border-t border-[var(--color-border)]/60"
+                        >
+                          <td className="text-[var(--color-ink-muted)] tabular px-3 py-1">{i + 1}</td>
+                          <td className="px-3 py-1 font-semibold">{c.symbol}</td>
+                          <td className="px-3 py-1">
+                            <Badge intent={c.side === "long" ? "long" : "short"}>{c.side}</Badge>
+                          </td>
+                          <td className="text-[var(--color-ink-secondary)] px-3 py-1">
+                            {c.strategy}
+                          </td>
+                          <td className="tabular px-3 py-1 text-right">
+                            {c.score !== null ? c.score.toFixed(3) : "—"}
+                          </td>
+                          <td className="px-3 py-1">
+                            {last.opened?.includes(c.symbol) ? (
+                              <Badge intent="good">opened</Badge>
+                            ) : (
+                              <span className="text-[var(--color-ink-muted)]">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
