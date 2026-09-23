@@ -170,7 +170,7 @@ function ModelCard({
         ) : models.compareBoth ? (
           <Badge>comparing</Badge>
         ) : (
-          <Badge>idle</Badge>
+          <Badge>{models.mode === "auto" ? "standby" : "not used"}</Badge>
         )}
         {spent && <Badge intent="bad">{spent}</Badge>}
         {state && !state.last_call_ok && !spent && state.last_error && (
@@ -280,30 +280,27 @@ function pct(v: number | null | undefined) {
 
 function Compare({ models }: { models: AiModels }) {
   const { compare } = models;
-  if (!compare.sharedCandidates) {
+  if (!compare.decidingVerdicts) {
     return (
       <p className="text-[var(--color-ink-muted)] text-[11px] leading-relaxed">
-        No candidate answered by both models yet. The comparison fills in once both have
-        answered the same bars — same market, same minute, the only fair test.
+        No deciding verdicts yet. Each model builds its own record while it is the one
+        deciding; the table fills in from those.
       </p>
     );
   }
   return (
     <div className="space-y-2">
       <p className="text-[var(--color-ink-secondary)] text-[11px]">
-        {compare.sharedCandidates} candidates answered by both, last 7 days · agreed on{" "}
-        <span className="font-medium text-[var(--color-ink)]">
-          {compare.agreement === null || compare.agreement === undefined
-            ? "—"
-            : `${Math.round(compare.agreement * 100)}%`}
-        </span>
+        Each model&apos;s own record while it was deciding, last 14 days · only one model runs at
+        a time, so compare each model&apos;s buys with its OWN skips, not across rows.
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[420px] text-[11px]">
+        <table className="w-full min-w-[480px] text-[11px]">
           <thead>
             <tr className="text-[var(--color-ink-muted)] text-left">
               <th className="py-1 font-normal">Model</th>
               <th className="py-1 font-normal">buy / skip / watch</th>
+              <th className="py-1 font-normal">buys · skips after 2h</th>
               <th className="py-1 font-normal">buys after 4h</th>
               <th className="py-1 font-normal">skips after 4h</th>
             </tr>
@@ -321,6 +318,10 @@ function Compare({ models }: { models: AiModels }) {
                   <td className="py-1.5 font-medium">{LABEL[model]}</td>
                   <td className="tabular py-1.5">
                     {row.counts.buy ?? 0} / {row.counts.skip ?? 0} / {row.counts.watch ?? 0}
+                  </td>
+                  <td className="tabular py-1.5">
+                    {pct(row.buyMean2h)} · {pct(row.skipMean2h)}
+                    <span className="text-[var(--color-ink-muted)]"> ({row.buyMeasured2h ?? 0})</span>
                   </td>
                   <td
                     className={`tabular py-1.5 ${
@@ -342,9 +343,9 @@ function Compare({ models }: { models: AiModels }) {
         </table>
       </div>
       <p className="text-[var(--color-ink-muted)] text-[10px] leading-relaxed">
-        Average price move in the trade&apos;s direction 4 hours after the verdict, before fees.
-        A model earns its keep when its buys move further than its skips — green means they did.
-        The number in brackets is how many buys have a finished 4-hour window.
+        Average price move in the trade&apos;s direction after the verdict, before fees. A model
+        earns its keep when its buys move further than its skips — green means they did. The
+        number in brackets is how many buys have a finished window.
       </p>
     </div>
   );
@@ -505,8 +506,8 @@ export function AiModelsPanel({
 
       <p className="text-[var(--color-ink-muted)] text-[11px] leading-relaxed">
         {models.mode === "auto"
-          ? `Auto: stays on ${LABEL[models.decider]} until its own limit runs out, then moves to the other model if that one has room. If both are spent it stays put.`
-          : `Manual: ${LABEL[models.decider]} decides until you change it here, whatever its limit says.`}{" "}
+          ? `Auto: only ${LABEL[models.decider]} is called. The other model is called only if ${LABEL[models.decider]} runs out of limit or fails a cycle — never both at once. If both are spent it stays put.`
+          : `Manual: only ${LABEL[models.decider]} is called, until you change it here, whatever its limit says.`}{" "}
         {models.compareBoth
           ? "The other model answers the same candidates in the background, for comparison only."
           : ""}{" "}

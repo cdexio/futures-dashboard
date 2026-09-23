@@ -326,18 +326,20 @@ export type AiModels = {
     kind?: "variant";
     provider?: AiModel;
   }[];
-  /** On candidates BOTH models answered: same bar, same minute. */
+  /** Each model's own DECIDING record — only one model runs at a time. */
   compare: {
-    sharedCandidates: number;
-    agreement?: number | null;
+    decidingVerdicts: number;
     models: Partial<
       Record<
         AiModel,
         {
           counts: Partial<Record<"buy" | "skip" | "watch", number>>;
+          buyMean2h?: number | null;
+          skipMean2h?: number | null;
           buyMean4h: number | null;
           skipMean4h: number | null;
           buyMeasured: number;
+          buyMeasured2h?: number;
         }
       >
     >;
