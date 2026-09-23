@@ -16,6 +16,19 @@ const KIND: Record<OpenOrder["kind"], { label: string; intent: "good" | "bad" | 
     manual: { label: "not placed by the bot", intent: "neutral" },
   };
 
+/** When the engine cancels an unfilled entry: the next 30-minute bar's cycle,
+ *  which starts about four minutes after the bar closes. An estimate — the
+ *  cycle, not a timer, does the cancelling — and labelled as one ("~"). */
+function expiresAt(placedAt: string): string {
+  const bar = 30 * 60 * 1000;
+  const next = Math.floor(Date.parse(placedAt) / bar) * bar + bar + 4 * 60 * 1000;
+  return new Date(next).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
+}
+
 /**
  * What is resting on the exchange right now.
  *
@@ -141,6 +154,11 @@ export function OpenOrders() {
                     </td>
                     <td className="text-[var(--color-ink-muted)] py-2 text-right">
                       {order.placedAt ? relative(order.placedAt) : "—"}
+                      {order.kind === "entry" && order.placedAt && (
+                        <span className="block text-[10px] text-[var(--color-warning)]">
+                          cancelled ~{expiresAt(order.placedAt)} UTC if unfilled
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
