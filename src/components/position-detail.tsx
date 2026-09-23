@@ -32,7 +32,90 @@ export type DetailTarget = {
   unrealizedPnl?: number | null;
   realizedPnl?: number | null;
   notional?: number | null;
+  quantity?: number | null;
+  marginUsd?: number | null;
+  /** Return on margin, as a fraction — the exchange's own ROI. */
+  roi?: number | null;
+  /** The price move alone, leverage stripped out, as a fraction. */
+  priceChange?: number | null;
+  liquidationPrice?: number | null;
+  liquidationDistance?: number | null;
+  protected?: boolean | null;
+  ageMinutes?: number | null;
+  /** Closed trades: what the result was made of. */
+  grossPnl?: number | null;
+  fees?: number | null;
+  funding?: number | null;
+  durationMinutes?: number | null;
 };
+
+const WIB = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta",
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** `09:36 UTC · 16:36 WIB` — the bot's clock and the owner's, side by side. */
+function when(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "—";
+  const utc = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  return `${utc} UTC · ${WIB.format(d).replace(/\./g, ":")} WIB`;
+}
+
+function span(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined || !Number.isFinite(minutes)) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function pct(v: number | null | undefined, signed = false): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  const s = (v * 100).toFixed(2);
+  return `${signed && v > 0 ? "+" : ""}${s}%`;
+}
+
+function Cell({
+  label,
+  children,
+  hint,
+  tone,
+}: {
+  label: string;
+  children: React.ReactNode;
+  hint?: string;
+  tone?: "profit" | "loss" | null;
+}) {
+  return (
+    <div>
+      <dt className="text-[var(--color-ink-muted)]">{label}</dt>
+      <dd
+        className="tabular mt-0.5 font-medium"
+        style={{
+          color:
+            tone === "profit"
+              ? "var(--color-profit)"
+              : tone === "loss"
+                ? "var(--color-loss)"
+                : undefined,
+        }}
+      >
+        {children}
+      </dd>
+      {hint && <p className="text-[var(--color-ink-muted)] mt-0.5 text-[10px]">{hint}</p>}
+    </div>
+  );
+}
+
+function toneOf(v: number | null | undefined): "profit" | "loss" | null {
+  if (v === null || v === undefined || !Number.isFinite(v) || v === 0) return null;
+  return v > 0 ? "profit" : "loss";
+}
 
 function money(v: number | null | undefined, digits = 2): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return "—";
@@ -75,7 +158,10 @@ function pickVerdict(
   side: "long" | "short",
   openedMs: number | null,
 ): AiStatus["decisions"][number] | null {
-  const mine = decisions.filter((d) => d.symbol === symbol && d.side === side);
+  // The ACTED verdict first: with two models answering every bar, the newest
+  // row on a pair may be the comparison model's opinion, not the decision.
+  const all = decisions.filter((d) => d.symbol === symbol && d.side === side);
+  const mine = [...all.filter((d) => d.acted), ...all.filter((d) => !d.acted)];
   if (openedMs === null) return mine[0] ?? null;
   // A small allowance forward: the verdict is stamped with the bar, and the
   // fill lands seconds to minutes later on that same bar's close.
@@ -222,6 +308,26 @@ export function PositionDetail({
     : [];
 
   const pnl = target?.realizedPnl ?? target?.unrealizedPnl ?? null;
+
+  // WHAT EACH LEVEL IS WORTH IN DOLLARS, from the entry, before fees. The
+  // stop can sit on the winning side once it has trailed — then "at stop" is
+  // profit already locked, and saying so is the point of showing it.
+  const sign = target?.side === "short" ? -1 : 1;
+  const qty = target?.quantity ?? null;
+  const ref = target ? (target.exitPrice ?? target.markPrice ?? target.entryPrice) : null;
+  const atStop =
+    target?.stopPrice && qty ? sign * (target.stopPrice - target.entryPrice) * qty : null;
+  const atTarget =
+    target?.takeProfitPrice && qty
+      ? sign * (target.takeProfitPrice - target.entryPrice) * qty
+      : null;
+  const stopDist = target?.stopPrice && ref ? Math.abs(ref - target.stopPrice) / ref : null;
+  const targetDist =
+    target?.takeProfitPrice && ref ? Math.abs(target.takeProfitPrice - ref) / ref : null;
+  const risked = atStop !== null && atStop < 0 ? -atStop : null;
+  const rewardRisk = risked && atTarget !== null && atTarget > 0 ? atTarget / risked : null;
+  const rNow = risked && pnl !== null ? pnl / risked : null;
+  const open = !target?.closedAt;
 
   // RENDERED INTO <body>, NOT WHERE IT IS DECLARED. `position: fixed` is only
   // fixed to the viewport while no ancestor has a transform, a filter or a
@@ -412,6 +518,120 @@ export function PositionDetail({
               </div>
             </dl>
 
+            {/* ---- size and time ---- */}
+            <p className="mb-2 text-sm font-medium">Size &amp; time</p>
+            <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4">
+              <Cell label="Quantity">{qty !== null ? qty.toLocaleString() : "—"}</Cell>
+              <Cell label="Notional" hint="position size at entry">
+                {money(target.notional)}
+              </Cell>
+              <Cell label="Margin" hint={target.leverage ? `at ${target.leverage}x` : undefined}>
+                {money(target.marginUsd)}
+              </Cell>
+              <Cell
+                label={open ? "ROI on margin" : "ROI on notional"}
+                tone={toneOf(target.roi)}
+                hint={
+                  target.priceChange !== null && target.priceChange !== undefined
+                    ? `price moved ${pct(target.priceChange, true)}`
+                    : undefined
+                }
+              >
+                {pct(target.roi, true)}
+              </Cell>
+              <Cell label="Opened">{when(target.openedAt)}</Cell>
+              {open ? (
+                <Cell label="Open for">{span(target.ageMinutes)}</Cell>
+              ) : (
+                <>
+                  <Cell label="Closed">{when(target.closedAt)}</Cell>
+                  <Cell label="Held">{span(target.durationMinutes)}</Cell>
+                </>
+              )}
+            </dl>
+
+            {/* ---- what the levels are worth ---- */}
+            {(atStop !== null || atTarget !== null || target.liquidationPrice) && (
+              <>
+                <p className="mb-2 text-sm font-medium">Risk &amp; reward</p>
+                <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4">
+                  <Cell
+                    label={atStop !== null && atStop >= 0 ? "Locked at stop" : "Loss at stop"}
+                    tone={toneOf(atStop)}
+                    hint={stopDist !== null ? `${pct(stopDist)} from ${open ? "mark" : "exit"}` : undefined}
+                  >
+                    {money(atStop)}
+                  </Cell>
+                  <Cell
+                    label="Gain at target"
+                    tone={toneOf(atTarget)}
+                    hint={
+                      targetDist !== null ? `${pct(targetDist)} from ${open ? "mark" : "exit"}` : undefined
+                    }
+                  >
+                    {money(atTarget)}
+                  </Cell>
+                  <Cell label="Reward : risk" hint="target gain ÷ stop loss, before fees">
+                    {rewardRisk !== null ? `${rewardRisk.toFixed(2)} : 1` : "—"}
+                  </Cell>
+                  <Cell
+                    label={open ? "R now" : "R result"}
+                    tone={toneOf(rNow)}
+                    hint="result in units of what the stop risks"
+                  >
+                    {rNow !== null ? `${rNow >= 0 ? "+" : ""}${rNow.toFixed(2)}R` : "—"}
+                  </Cell>
+                  {open && (
+                    <>
+                      <Cell
+                        label="Liquidation"
+                        hint={
+                          target.liquidationDistance !== null &&
+                          target.liquidationDistance !== undefined
+                            ? `${pct(target.liquidationDistance)} away`
+                            : "cross margin: account-level"
+                        }
+                      >
+                        {px(target.liquidationPrice)}
+                      </Cell>
+                      <Cell
+                        label="Protected"
+                        tone={target.protected === false ? "loss" : null}
+                        hint="a stop is resting on the exchange"
+                      >
+                        {target.protected === null || target.protected === undefined
+                          ? "—"
+                          : target.protected
+                            ? "yes"
+                            : "NO STOP"}
+                      </Cell>
+                    </>
+                  )}
+                </dl>
+              </>
+            )}
+
+            {/* ---- what a closed result was made of ---- */}
+            {!open && (target.grossPnl !== undefined || target.fees !== undefined) && (
+              <>
+                <p className="mb-2 text-sm font-medium">Result breakdown</p>
+                <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4">
+                  <Cell label="Gross" tone={toneOf(target.grossPnl)}>
+                    {money(target.grossPnl)}
+                  </Cell>
+                  <Cell label="Fees" tone={target.fees ? "loss" : null}>
+                    {money(target.fees ? -Math.abs(target.fees) : target.fees)}
+                  </Cell>
+                  <Cell label="Funding" tone={toneOf(target.funding)}>
+                    {money(target.funding)}
+                  </Cell>
+                  <Cell label="Net" tone={toneOf(target.realizedPnl)}>
+                    {money(target.realizedPnl)}
+                  </Cell>
+                </dl>
+              </>
+            )}
+
             <div className="border-[var(--color-border)] border-t pt-4">
               <p className="mb-2 text-sm font-medium">What the AI said</p>
               {verdict ? (
@@ -428,9 +648,16 @@ export function PositionDetail({
                     >
                       {verdict.verdict}
                     </Badge>
+                    <span className="rounded bg-[var(--color-surface-overlay)] px-1.5 py-0.5 text-[10px] font-semibold uppercase">
+                      {verdict.model === "claude" ? "Claude" : "DeepSeek"}
+                    </span>
+                    <span className="text-[var(--color-ink-muted)] text-[10px]">
+                      {when(verdict.at)}
+                      {verdict.score !== null ? ` · scored ${verdict.score.toFixed(3)}` : ""}
+                    </span>
                     {!verdict.acted && (
                       <span className="text-[var(--color-ink-muted)] text-[10px]">
-                        not acted on — the validator is watching only
+                        not acted on — this model was only compared, not deciding
                       </span>
                     )}
                   </div>

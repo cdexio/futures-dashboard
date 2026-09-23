@@ -135,5 +135,11 @@ function toTarget(trade: ClosedTrade): DetailTarget {
     closedAt: trade.closedAt,
     realizedPnl: trade.netPnl,
     notional: trade.notional,
+    quantity: trade.quantity,
+    roi: trade.roi,
+    grossPnl: trade.realizedPnl,
+    fees: trade.commission,
+    funding: trade.funding,
+    durationMinutes: trade.durationMinutes,
   };
 }

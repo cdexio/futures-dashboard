@@ -124,6 +124,15 @@ async function EngineTab() {
             </Suspense>
           </Card>
         </Reveal>
+        {/* Under the feed, on the owner's request: the verdicts and the ideas
+            they shelved read together, top to bottom. */}
+        <Reveal delay={0.05}>
+          <Card className="p-6" hoverable={false}>
+            <Suspense fallback={<SkeletonTable rows={3} />}>
+              <Watching promise={watchPromise} />
+            </Suspense>
+          </Card>
+        </Reveal>
       </div>
       <div className="min-w-0 space-y-6">
         <Reveal delay={0.06}>
@@ -133,18 +142,11 @@ async function EngineTab() {
             </Suspense>
           </Card>
         </Reveal>
-        {/* Above the watch list: it answers "why is nothing opening?" with the
-            rule that stopped each pair, instead of leaving it to log lines. */}
+        {/* It answers "why is nothing opening?" with the rule that stopped
+            each pair, instead of leaving it to log lines. */}
         <Reveal delay={0.08}>
           <Card className="p-6" hoverable={false}>
             <ScanFunnel />
-          </Card>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <Card className="p-6" hoverable={false}>
-            <Suspense fallback={<SkeletonTable rows={3} />}>
-              <Watching promise={watchPromise} />
-            </Suspense>
           </Card>
         </Reveal>
       </div>

@@ -175,6 +175,14 @@ export function LiveTrade({
             openedAt: detail.openedAt,
             unrealizedPnl: detail.unrealizedPnl,
             notional: detail.notional,
+            quantity: detail.quantity,
+            marginUsd: detail.marginUsd,
+            roi: detail.roi,
+            priceChange: detail.priceChange,
+            liquidationPrice: detail.liquidationPrice,
+            liquidationDistance: detail.liquidationDistance,
+            protected: detail.protected,
+            ageMinutes: detail.ageMinutes,
           }
         }
         onClose={() => setDetail(null)}
