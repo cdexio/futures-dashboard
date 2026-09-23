@@ -132,6 +132,9 @@ export type RouteStats = {
   fees: number;
   winRate: number;
   averageTrade: number;
+  /** Trades counted here because no route was recorded for them — placed in
+   *  `momentum` by the owner's choice, not measured as momentum. */
+  unrecorded?: number;
 };
 
 export type AccountSnapshot = {
@@ -308,6 +311,18 @@ export type AiStatus = {
      *  validator is deciding, and clamped to the owner's window when it is. */
     maxHoldHours: number | null;
   }[];
+  /** The review agreed on 2026-09-23: after `target` deciding-mode buys have
+   *  a complete 4h window, compare them with the skips. Buys that do not beat
+   *  the skips send the validator back to shadow. */
+  checkpoint?: {
+    target: number;
+    since: string | null;
+    buys: number | null;
+    skips?: number;
+    buyMean4h?: number | null;
+    skipMean4h?: number | null;
+    reached?: boolean;
+  };
 };
 
 /** One cycle's scan, stage by stage. Every field optional: a cycle that was

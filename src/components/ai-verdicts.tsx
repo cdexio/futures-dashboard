@@ -63,6 +63,54 @@ function Levels({ decision }: { decision: Decision }) {
 }
 
 /**
+ * The agreed review, kept on screen so it does not depend on anyone
+ * remembering it: after 30 deciding-mode buys with a complete four-hour
+ * window, do they beat the skips? If not, the validator goes back to shadow.
+ */
+function Checkpoint({ checkpoint }: { checkpoint: AiStatus["checkpoint"] }) {
+  if (!checkpoint || checkpoint.buys === null || checkpoint.buys === undefined) return null;
+  const { target, buys, buyMean4h, skipMean4h, reached } = checkpoint;
+  const pct = (v: number | null | undefined) =>
+    v === null || v === undefined ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+  const winning =
+    buyMean4h !== null && buyMean4h !== undefined && skipMean4h !== null && skipMean4h !== undefined
+      ? buyMean4h > skipMean4h
+      : null;
+  return (
+    <div
+      className={`mb-3 rounded-lg border px-3 py-2 text-[11px] leading-relaxed ${
+        reached
+          ? "border-[var(--color-warning)]/40 bg-[var(--color-warning)]/[0.08] text-[var(--color-warning)]"
+          : "border-[var(--color-border)] text-[var(--color-ink-secondary)]"
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium">
+          AI review checkpoint · {Math.min(buys, target)} / {target} buys measured
+        </span>
+        <span className="tabular">
+          buys {pct(buyMean4h)} vs skips {pct(skipMean4h)} after 4h
+        </span>
+      </div>
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--color-surface-overlay)]">
+        <div
+          className="h-full rounded-full bg-[var(--color-solana)]"
+          style={{ width: `${Math.min(buys / target, 1) * 100}%` }}
+        />
+      </div>
+      {reached && (
+        <p className="mt-1.5">
+          Checkpoint reached —{" "}
+          {winning
+            ? "the buys beat the skips: keep the AI deciding."
+            : "the buys did NOT beat the skips: as agreed, put the AI back in shadow."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * What the validator said about each candidate, and why.
  *
  * READ FROM THE DATABASE, NOT FROM THE JOURNAL. The engine tab parses log
@@ -128,6 +176,8 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
           ${quota.spentToday.toFixed(4)} today
         </span>
       </div>
+
+      <Checkpoint checkpoint={status.checkpoint} />
 
       {status.decisions.length > 0 && (counts.buy ?? 0) === 0 && (
         <p className="mb-3 rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-warning)]">

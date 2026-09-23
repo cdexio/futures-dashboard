@@ -85,6 +85,15 @@ export function RouteCards({
               <p className="text-[var(--color-ink-muted)] mt-3 text-[10px] leading-relaxed">
                 {ABOUT[route.route] ?? "route the engine reported"}
               </p>
+              {/* Said on the card, because the number above includes them: a
+                  route judged on trades it may never have opened would be
+                  judged on attribution, not on its own record. */}
+              {!!route.unrecorded && (
+                <p className="mt-2 text-[10px] leading-relaxed text-[var(--color-warning)]">
+                  includes {route.unrecorded} trade{route.unrecorded === 1 ? "" : "s"} from before
+                  routes were recorded
+                </p>
+              )}
             </Card>
           );
         })}
