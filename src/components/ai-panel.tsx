@@ -228,8 +228,8 @@ export function AiPanel({ initial }: { initial: AiStatus | null }) {
             <span className="font-medium text-[var(--color-ink)]">
               {status.models.decider === "claude" ? "Claude" : "DeepSeek"}
             </span>{" "}
-            ({status.models.mode}). Switch models, and see Claude&apos;s limits and the
-            comparison, on{" "}
+            ({status.models.mode}) — switch it in the section below. The same status, with each
+            model&apos;s verdicts, is on{" "}
             <Link href="/trade?tab=engine" className="text-[var(--color-solana-bright)] underline">
               Trade → Engine &amp; AI
             </Link>

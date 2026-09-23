@@ -1,13 +1,25 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Bot, Loader2 } from "lucide-react";
+import { ArrowRight, Bot, Loader2, Settings2 } from "lucide-react";
 
 import { Badge } from "@/components/ui";
 import type { AiModel, AiModelState, AiModels, AiStatus } from "@/lib/bot-api";
 import { relative } from "@/lib/format";
 
-const LABEL: Record<AiModel, string> = { deepseek: "DeepSeek", claude: "Claude" };
+const LABEL: Record<string, string> = { deepseek: "DeepSeek", claude: "Claude" };
+
+/** Measured on the VPS, 2026-09-23, one call of 16 candidates — the size of a
+ *  real cycle. The scan ends ~6 minutes into a bar whose entries expire at 10,
+ *  so seconds here are seconds of that margin. */
+const VARIANT_NOTE: Record<string, string> = {
+  "deepseek-chat": "~5s · $0.004/call",
+  "deepseek-reasoner": "~57s · thinks first · ~5× the cost",
+  sonnet: "~23s",
+  haiku: "~27s · lightest on the subscription",
+  opus: "~43s · strongest, spends the 5-hour window fastest",
+};
 
 const WIB_TIME = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
@@ -114,15 +126,23 @@ function Segmented<T extends string>({
 function ModelCard({
   model,
   models,
+  controls,
+  busy,
+  onVariant,
 }: {
   model: AiModel;
   models: AiModels;
+  controls: boolean;
+  busy: boolean;
+  onVariant: (provider: AiModel, variant: string) => void;
 }) {
   const state = models.limits[model];
   const deciding = models.decider === model;
   const spent = exhausted(model, state, models.thresholds);
   const l = state?.limits ?? null;
   const off = model === "claude" && !models.claudeEnabled;
+  const variant = models.variants?.[model];
+  const choices = models.variantChoices?.[model] ?? [];
 
   return (
     <div
@@ -148,8 +168,27 @@ function ModelCard({
           <Badge intent="warn">last call failed</Badge>
         )}
       </div>
-      {state?.model && (
-        <p className="text-[var(--color-ink-muted)] mt-1 text-[11px]">{state.model}</p>
+      {controls && variant && choices.length > 1 ? (
+        <div className="mt-3">
+          <Segmented
+            label={`${LABEL[model]} model`}
+            value={variant}
+            disabled={busy || off}
+            onChange={(next) => onVariant(model, next)}
+            options={choices.map((id) => ({ id, label: id.replace("deepseek-", "") }))}
+          />
+          <p className="text-[var(--color-ink-muted)] mt-1.5 text-[10px]">
+            {VARIANT_NOTE[variant] ?? ""}
+            {state?.model && state.model !== variant ? ` · last ran ${state.model}` : ""}
+          </p>
+        </div>
+      ) : (
+        (variant || state?.model) && (
+          <p className="text-[var(--color-ink-muted)] mt-1 text-[11px]">
+            {state?.model ?? variant}
+            {variant && state?.model && !state.model.includes(variant) ? ` → ${variant} next cycle` : ""}
+          </p>
+        )
       )}
 
       <div className="mt-3 space-y-3 text-xs">
@@ -299,7 +338,14 @@ function Compare({ models }: { models: AiModels }) {
  *
  * THE STATE SHOWN IS THE SERVER'S, never an optimistic flip.
  */
-export function AiModelsPanel({ initial }: { initial: AiStatus | null }) {
+export function AiModelsPanel({
+  initial,
+  controls = false,
+}: {
+  initial: AiStatus | null;
+  /** The switches live on Settings; elsewhere the panel only reports. */
+  controls?: boolean;
+}) {
   const [models, setModels] = useState<AiModels | undefined>(initial?.models);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -351,6 +397,33 @@ export function AiModelsPanel({ initial }: { initial: AiStatus | null }) {
     }
   }
 
+  async function setVariant(provider: AiModel, variant: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ai/variant", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider, variant }),
+      });
+      const body = (await response.json()) as {
+        variants?: Record<AiModel, string>;
+        error?: string;
+      };
+      if (!response.ok || !body.variants) {
+        setError(body.error ?? "The trading machine did not answer.");
+        return;
+      }
+      // Trust the answer, not the click.
+      const { variants } = body;
+      setModels((current) => (current ? { ...current, variants } : current));
+    } catch {
+      setError("The trading machine did not answer.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!models) {
     return (
       <p className="text-[var(--color-ink-muted)] text-sm">
@@ -365,9 +438,20 @@ export function AiModelsPanel({ initial }: { initial: AiStatus | null }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-[var(--color-solana-bright)]" />
-          <span className="text-sm font-medium">Deciding model</span>
+          <span className="text-sm font-medium">
+            {controls ? "AI provider" : `${LABEL[models.decider]} is deciding`}
+          </span>
+          {!controls && <Badge>{models.mode}</Badge>}
           {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
         </div>
+        {!controls ? (
+          <Link
+            href="/settings"
+            className="inline-flex items-center gap-1.5 text-xs text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink)]"
+          >
+            <Settings2 className="h-3.5 w-3.5" /> Change in Settings
+          </Link>
+        ) : (
         <div className="flex flex-wrap items-center gap-2">
           <Segmented
             label="Deciding model"
@@ -390,6 +474,7 @@ export function AiModelsPanel({ initial }: { initial: AiStatus | null }) {
             ]}
           />
         </div>
+        )}
       </div>
 
       <p className="text-[var(--color-ink-muted)] text-[11px] leading-relaxed">
@@ -405,8 +490,16 @@ export function AiModelsPanel({ initial }: { initial: AiStatus | null }) {
       {error && <p className="text-[var(--color-loss)] text-xs">{error}</p>}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <ModelCard model="deepseek" models={models} />
-        <ModelCard model="claude" models={models} />
+        {(["deepseek", "claude"] as const).map((model) => (
+          <ModelCard
+            key={model}
+            model={model}
+            models={models}
+            controls={controls}
+            busy={busy}
+            onVariant={setVariant}
+          />
+        ))}
       </div>
 
       <div className="border-[var(--color-border)] border-t pt-4">

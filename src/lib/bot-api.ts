@@ -303,13 +303,26 @@ export type AiModels = {
   mode: "manual" | "auto";
   compareBoth: boolean;
   claudeEnabled: boolean;
+  /** Which model each provider runs now, and the closed list it may pick
+   *  from. Absent on an API older than the model picker. */
+  variants?: Record<AiModel, string>;
+  variantChoices?: Record<AiModel, string[]>;
   thresholds: {
     deepseekMinBalanceUsd: number;
     claudeMaxFiveHour: number;
     claudeMaxSevenDay: number;
   };
   limits: Partial<Record<AiModel, AiModelState | null>>;
-  switches: { at: string; from: AiModel; to: AiModel; reason: string }[];
+  /** Decider switches, and — `kind: "variant"` — model changes within a
+   *  provider, where `from`/`to` are model names rather than providers. */
+  switches: {
+    at: string;
+    from: string;
+    to: string;
+    reason: string;
+    kind?: "variant";
+    provider?: AiModel;
+  }[];
   /** On candidates BOTH models answered: same bar, same minute. */
   compare: {
     sharedCandidates: number;

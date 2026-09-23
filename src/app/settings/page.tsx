@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
 
+import { AiModelsPanel } from "@/components/ai-models";
 import { AiPanel } from "@/components/ai-panel";
 import { AllSettings } from "@/components/all-settings";
 import { Badge, Card, Reveal, SectionTitle } from "@/components/ui";
@@ -175,6 +176,18 @@ export default async function SettingsPage() {
             hint="A second opinion on each candidate, and what it costs to ask."
           />
           <AiPanel initial={ai} />
+        </Card>
+      </Reveal>
+
+      {/* The provider and model switches live here, with the other AI
+          switch; the Trade page shows the same panel without the controls. */}
+      <Reveal delay={0.038}>
+        <Card className="p-6" hoverable={false}>
+          <SectionTitle
+            title="AI provider & model"
+            hint="Who decides — DeepSeek or Claude — which model each runs, and what each has left."
+          />
+          <AiModelsPanel initial={ai} controls />
         </Card>
       </Reveal>
 
