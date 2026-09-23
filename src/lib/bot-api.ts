@@ -290,7 +290,46 @@ export type AiStatus = {
     entry: number | null;
     takeProfit: number | null;
     stopLoss: number | null;
+    /** Hours the model said the idea deserves, raw. Acted on only when the
+     *  validator is deciding, and clamped to the owner's window when it is. */
+    maxHoldHours: number | null;
   }[];
+};
+
+/** One cycle's scan, stage by stage. Every field optional: a cycle that was
+ *  skipped — full book, stale lake — carries only `skipped` and its reason. */
+export type ScanSummary = {
+  at: string;
+  finishedAt?: string;
+  skipped?: string;
+  universe?: number;
+  withData?: number;
+  missingData?: number;
+  /** Why each symbol produced nothing on the newest bar, by the first rule
+   *  that stopped it. `signal` is the count that got through. */
+  engine?: { reason: string; count: number }[];
+  windowSignals?: number;
+  barClosedAt?: string;
+  newestBar?: number;
+  byStrategy?: Record<string, number>;
+  scoreGate?: { kept: number; dropped: number; summary: string };
+  candidates?: { symbol: string; side: string; strategy: string; score: number | null }[];
+  ai?: { reviewed: number; buy: number; skip: number; watch: number; shadow: boolean };
+  toRunner?: number;
+  orders?: number;
+  opened?: string[];
+  refused?: { reason: string; count: number }[];
+  equity?: number;
+};
+
+export type ScanHistoryRow = {
+  at: string;
+  universe: number | null;
+  newestBar: number | null;
+  toRunner: number | null;
+  opened: number;
+  orders: number | null;
+  skipped: string | null;
 };
 
 /** What `/api/live` returns: one instant, both halves. */

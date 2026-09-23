@@ -53,6 +53,11 @@ function Levels({ decision }: { decision: Decision }) {
           SL <span className="tabular text-[var(--color-loss)]">{price(stopLoss)}</span>
         </span>
       )}
+      {decision.maxHoldHours !== null && (
+        <span className="text-[var(--color-ink-secondary)]">
+          hold <span className="tabular text-[var(--color-ink)]">{decision.maxHoldHours}h</span>
+        </span>
+      )}
     </div>
   );
 }

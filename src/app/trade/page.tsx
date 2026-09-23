@@ -1,5 +1,6 @@
 import { LiveFeed } from "@/components/live-feed";
 import { LiveTrade } from "@/components/live-trade";
+import { ScanFunnel } from "@/components/scan-funnel";
 import { WatchList } from "@/components/watch-list";
 import { Card, Reveal } from "@/components/ui";
 import {
@@ -75,6 +76,15 @@ export default async function TradePage() {
           <Reveal delay={0.08}>
             <Card className="p-6" hoverable={false}>
               <LiveFeed initial={activity.events} initialAi={aiStatus} />
+            </Card>
+          </Reveal>
+          {/* Above the watch list: it answers the question asked most often
+              on this page — "why is nothing opening?" — with the rule that
+              stopped each pair, instead of leaving it to be read out of log
+              lines. */}
+          <Reveal delay={0.1}>
+            <Card className="p-6" hoverable={false}>
+              <ScanFunnel />
             </Card>
           </Reveal>
           <Reveal delay={0.12}>

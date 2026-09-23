@@ -7,6 +7,7 @@ import { ExternalLink, X } from "lucide-react";
 import { CandleChart } from "@/components/candle-chart";
 import { Badge } from "@/components/ui";
 import type { AiStatus, Candle } from "@/lib/bot-api";
+import { price as formatPrice } from "@/lib/format";
 
 /** What the modal needs. Deliberately not `Position`, so a closed trade from
  *  the history page can open the same panel — the two share a symbol, a side,
@@ -40,6 +41,14 @@ function money(v: number | null | undefined, digits = 2): string {
 function hours(v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return "—";
   return `${v.toFixed(1)}h`;
+}
+
+/** A price at the precision it is quoted to. Printed raw, a float carried its
+ *  binary noise onto the screen — "0.045259999999999995" for an entry of
+ *  0.04526 — which reads as a precision the exchange would reject. */
+function px(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  return formatPrice(v);
 }
 
 /**
@@ -330,14 +339,14 @@ export function PositionDetail({
             <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4">
               <div>
                 <dt className="text-[var(--color-ink-muted)]">Entry</dt>
-                <dd className="tabular mt-0.5 font-medium">{target.entryPrice}</dd>
+                <dd className="tabular mt-0.5 font-medium">{px(target.entryPrice)}</dd>
               </div>
               <div>
                 <dt className="text-[var(--color-ink-muted)]">
                   {target.exitPrice ? "Exit" : "Mark"}
                 </dt>
                 <dd className="tabular mt-0.5 font-medium">
-                  {target.exitPrice ?? target.markPrice ?? "—"}
+                  {px(target.exitPrice ?? target.markPrice)}
                 </dd>
               </div>
               <div>
@@ -368,7 +377,12 @@ export function PositionDetail({
               </div>
               <div>
                 <dt className="text-[var(--color-ink-muted)]">Max hold</dt>
-                <dd className="mt-0.5 font-medium">{hours(target.maxHoldHours)}</dd>
+                {/* A dash alone read as "no limit". A position with no limit
+                    of its own still has one — the account's — and saying so is
+                    the difference between a rule and an absence of one. */}
+                <dd className="mt-0.5 font-medium">
+                  {target.maxHoldHours ? hours(target.maxHoldHours) : "account limit"}
+                </dd>
               </div>
               <div>
                 <dt className="text-[var(--color-ink-muted)]">Time left</dt>
@@ -378,11 +392,11 @@ export function PositionDetail({
               </div>
               <div>
                 <dt className="text-[var(--color-ink-muted)]">Stop</dt>
-                <dd className="tabular mt-0.5 font-medium">{target.stopPrice ?? "—"}</dd>
+                <dd className="tabular mt-0.5 font-medium">{px(target.stopPrice)}</dd>
               </div>
               <div>
                 <dt className="text-[var(--color-ink-muted)]">Target</dt>
-                <dd className="tabular mt-0.5 font-medium">{target.takeProfitPrice ?? "—"}</dd>
+                <dd className="tabular mt-0.5 font-medium">{px(target.takeProfitPrice)}</dd>
               </div>
             </dl>
 
@@ -429,14 +443,16 @@ export function PositionDetail({
                         {verdict.entry !== null && (
                           <span className="text-[var(--color-ink-secondary)]">
                             {verdict.verdict === "watch" ? "wanted" : "entry"}{" "}
-                            <span className="tabular text-[var(--color-ink)]">{verdict.entry}</span>
+                            <span className="tabular text-[var(--color-ink)]">
+                              {px(verdict.entry)}
+                            </span>
                           </span>
                         )}
                         {verdict.takeProfit !== null && (
                           <span className="text-[var(--color-ink-secondary)]">
                             TP{" "}
                             <span className="tabular text-[var(--color-profit)]">
-                              {verdict.takeProfit}
+                              {px(verdict.takeProfit)}
                             </span>
                           </span>
                         )}
@@ -444,7 +460,15 @@ export function PositionDetail({
                           <span className="text-[var(--color-ink-secondary)]">
                             SL{" "}
                             <span className="tabular text-[var(--color-loss)]">
-                              {verdict.stopLoss}
+                              {px(verdict.stopLoss)}
+                            </span>
+                          </span>
+                        )}
+                        {verdict.maxHoldHours !== null && (
+                          <span className="text-[var(--color-ink-secondary)]">
+                            hold{" "}
+                            <span className="tabular text-[var(--color-ink)]">
+                              {hours(verdict.maxHoldHours)}
                             </span>
                           </span>
                         )}
