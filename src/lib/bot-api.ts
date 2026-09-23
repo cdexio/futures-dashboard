@@ -307,6 +307,9 @@ export type AiModels = {
    *  from. Absent on an API older than the model picker. */
   variants?: Record<AiModel, string>;
   variantChoices?: Record<AiModel, string[]>;
+  /** Claude's thinking effort: off, low, medium, high. */
+  effort?: string;
+  effortChoices?: string[];
   thresholds: {
     deepseekMinBalanceUsd: number;
     claudeMaxFiveHour: number;

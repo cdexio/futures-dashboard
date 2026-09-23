@@ -18,19 +18,28 @@ export async function POST(request: Request) {
     throw error;
   }
 
-  const body = (await request.json().catch(() => ({}))) as { provider?: unknown; variant?: unknown };
-  if (
-    (body.provider !== "deepseek" && body.provider !== "claude") ||
-    typeof body.variant !== "string" ||
-    !/^[a-z0-9.-]{2,40}$/.test(body.variant)
+  const body = (await request.json().catch(() => ({}))) as {
+    provider?: unknown;
+    variant?: unknown;
+    effort?: unknown;
+  };
+  let payload: Record<string, string>;
+  if (typeof body.effort === "string" && /^[a-z]{2,10}$/.test(body.effort)) {
+    payload = { effort: body.effort };
+  } else if (
+    (body.provider === "deepseek" || body.provider === "claude") &&
+    typeof body.variant === "string" &&
+    /^[a-z0-9.-]{2,40}$/.test(body.variant)
   ) {
-    return Response.json({ error: "provider and variant are required" }, { status: 400 });
+    payload = { provider: body.provider, variant: body.variant };
+  } else {
+    return Response.json({ error: "provider and variant, or effort, are required" }, { status: 400 });
   }
 
   const response = await fetch(`${BASE}/api/ai/variant`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ provider: body.provider, variant: body.variant }),
+    body: JSON.stringify(payload),
     cache: "no-store",
     signal: AbortSignal.timeout(10_000),
   }).catch(() => null);

@@ -21,6 +21,15 @@ const VARIANT_NOTE: Record<string, string> = {
   opus: "~43s · strongest, spends the 5-hour window fastest",
 };
 
+/** Same 16-candidate batch, 2026-09-23. Model times above are thinking off.
+ *  Opus thinks briefly (3.9k tokens at medium); sonnet thinks long (10.9k). */
+const EFFORT_NOTE: Record<string, string> = {
+  off: "no thinking · opus ~43s, sonnet ~23s",
+  low: "opus ~30s",
+  medium: "opus ~41s · sonnet ~98s",
+  high: "opus ~48s",
+};
+
 const WIB_TIME = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
   weekday: "short",
@@ -134,7 +143,7 @@ function ModelCard({
   models: AiModels;
   controls: boolean;
   busy: boolean;
-  onVariant: (provider: AiModel, variant: string) => void;
+  onVariant: (change: { provider: AiModel; variant: string } | { effort: string }) => void;
 }) {
   const state = models.limits[model];
   const deciding = models.decider === model;
@@ -174,19 +183,35 @@ function ModelCard({
             label={`${LABEL[model]} model`}
             value={variant}
             disabled={busy || off}
-            onChange={(next) => onVariant(model, next)}
+            onChange={(next) => onVariant({ provider: model, variant: next })}
             options={choices.map((id) => ({ id, label: id.replace("deepseek-", "") }))}
           />
           <p className="text-[var(--color-ink-muted)] mt-1.5 text-[10px]">
             {VARIANT_NOTE[variant] ?? ""}
             {state?.model && state.model !== variant ? ` · last ran ${state.model}` : ""}
           </p>
+          {model === "claude" && models.effort && (models.effortChoices?.length ?? 0) > 1 && (
+            <div className="mt-3">
+              <p className="text-[var(--color-ink-secondary)] mb-1.5 text-[11px]">Thinking effort</p>
+              <Segmented
+                label="Claude thinking effort"
+                value={models.effort}
+                disabled={busy || off}
+                onChange={(effort) => onVariant({ effort })}
+                options={(models.effortChoices ?? []).map((id) => ({ id, label: id }))}
+              />
+              <p className="text-[var(--color-ink-muted)] mt-1.5 text-[10px]">
+                {EFFORT_NOTE[models.effort] ?? ""}
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         (variant || state?.model) && (
           <p className="text-[var(--color-ink-muted)] mt-1 text-[11px]">
             {state?.model ?? variant}
             {variant && state?.model && !state.model.includes(variant) ? ` → ${variant} next cycle` : ""}
+            {model === "claude" && models.effort ? ` · thinking ${models.effort}` : ""}
           </p>
         )
       )}
@@ -397,17 +422,18 @@ export function AiModelsPanel({
     }
   }
 
-  async function setVariant(provider: AiModel, variant: string) {
+  async function setVariant(change: { provider: AiModel; variant: string } | { effort: string }) {
     setBusy(true);
     setError(null);
     try {
       const response = await fetch("/api/ai/variant", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ provider, variant }),
+        body: JSON.stringify(change),
       });
       const body = (await response.json()) as {
         variants?: Record<AiModel, string>;
+        effort?: string;
         error?: string;
       };
       if (!response.ok || !body.variants) {
@@ -415,8 +441,8 @@ export function AiModelsPanel({
         return;
       }
       // Trust the answer, not the click.
-      const { variants } = body;
-      setModels((current) => (current ? { ...current, variants } : current));
+      const { variants, effort } = body;
+      setModels((current) => (current ? { ...current, variants, effort } : current));
     } catch {
       setError("The trading machine did not answer.");
     } finally {
