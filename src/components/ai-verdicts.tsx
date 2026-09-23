@@ -6,13 +6,56 @@ import { Check, Eye, Sparkles, X } from "lucide-react";
 
 import { Badge } from "@/components/ui";
 import type { AiStatus } from "@/lib/bot-api";
-import { relative } from "@/lib/format";
+import { price, relative } from "@/lib/format";
 
 const VERDICT = {
   buy: { icon: Check, intent: "good" as const, said: "worth buying" },
   skip: { icon: X, intent: "neutral" as const, said: "refused" },
   watch: { icon: Eye, intent: "warn" as const, said: "kept for later" },
 };
+
+type Decision = AiStatus["decisions"][number];
+
+/**
+ * The three prices a verdict carries, or nothing at all.
+ *
+ * WHAT "ENTRY" MEANS DEPENDS ON THE VERDICT, and the label says which rather
+ * than leaving a reader to infer it. On a buy it is the fill; on a watch it is
+ * the price the model wanted INSTEAD of the one quoted — the whole content of
+ * the refusal, and the thing that was missing when every verdict rendered as a
+ * bare sentence.
+ *
+ * Rendered only when something is there. A skip has no levels by design, and a
+ * row of dashes on every refusal would be three columns of noise on the verdict
+ * this list is mostly made of. The same emptiness covers rows written before
+ * the prompt asked for levels, which is correct: they were never asked.
+ */
+function Levels({ decision }: { decision: Decision }) {
+  const { entry, takeProfit, stopLoss } = decision;
+  if (entry === null && takeProfit === null && stopLoss === null) {
+    return null;
+  }
+  const entryLabel = decision.verdict === "watch" ? "wants" : "entry";
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
+      {entry !== null && (
+        <span className="text-[var(--color-ink-secondary)]">
+          {entryLabel} <span className="tabular text-[var(--color-ink)]">{price(entry)}</span>
+        </span>
+      )}
+      {takeProfit !== null && (
+        <span className="text-[var(--color-ink-secondary)]">
+          TP <span className="tabular text-[var(--color-profit)]">{price(takeProfit)}</span>
+        </span>
+      )}
+      {stopLoss !== null && (
+        <span className="text-[var(--color-ink-secondary)]">
+          SL <span className="tabular text-[var(--color-loss)]">{price(stopLoss)}</span>
+        </span>
+      )}
+    </div>
+  );
+}
 
 /**
  * What the validator said about each candidate, and why.
@@ -136,6 +179,7 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
                     {decision.reason}
                   </p>
                 )}
+                <Levels decision={decision} />
                 <p className="text-[var(--color-ink-muted)] mt-1 text-[10px]">
                   {relative(decision.at)}
                 </p>

@@ -19,6 +19,13 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const symbol = (params.get("symbol") ?? "").toUpperCase();
   const interval = params.get("interval") ?? "30m";
+  // Where the window ends, in epoch ms. The history page sends the trade's
+  // close so the chart shows the move the trade was IN; anchored to now, a
+  // trade from six days ago falls off the right edge entirely. Coerced to a
+  // finite integer rather than forwarded, for the same reason `interval` is
+  // validated: it ends up in a URL on the bot API.
+  const rawEnd = Number(params.get("end"));
+  const end = Number.isFinite(rawEnd) && rawEnd > 0 ? Math.floor(rawEnd) : null;
 
   if (!SYMBOL.test(symbol)) {
     return Response.json({ error: "bad symbol" }, { status: 400 });
@@ -29,7 +36,7 @@ export async function GET(request: Request) {
 
   try {
     const data = await botFetch<{ candles: Candle[] }>(
-      `/api/candles?symbol=${symbol}&interval=${interval}`,
+      `/api/candles?symbol=${symbol}&interval=${interval}${end ? `&end=${end}` : ""}`,
     );
     return Response.json(data);
   } catch (error) {

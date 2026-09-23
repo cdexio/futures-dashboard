@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 
 import { CandleChart } from "@/components/candle-chart";
 import { Badge } from "@/components/ui";
@@ -43,6 +43,37 @@ function hours(v: number | null | undefined): string {
 }
 
 /**
+ * The verdict that describes THIS trade, not merely the newest one on the pair.
+ *
+ * THE HISTORY PAGE IS WHY THIS IS NOT A `find`. The endpoint returns the last
+ * forty verdicts across every symbol, and a pair the engine has judged three
+ * times has three rows. For an open position the newest is right, because the
+ * position is the newest thing that happened. For a round trip that closed on
+ * Tuesday, the newest row may be about an idea from this morning — attaching
+ * it to Tuesday's trade would put words in the validator's mouth about a trade
+ * it never saw.
+ *
+ * So when the open time is known, the answer is the last verdict at or BEFORE
+ * it. `bar_ts` is the bar the candidate was born on and the position opened on
+ * the bar after, so a verdict for this trade is always in the past; one in the
+ * future belongs to a later idea. `decisions` arrives newest-first, so the
+ * first match walking forward is the closest one.
+ */
+function pickVerdict(
+  decisions: AiStatus["decisions"],
+  symbol: string,
+  side: "long" | "short",
+  openedMs: number | null,
+): AiStatus["decisions"][number] | null {
+  const mine = decisions.filter((d) => d.symbol === symbol && d.side === side);
+  if (openedMs === null) return mine[0] ?? null;
+  // A small allowance forward: the verdict is stamped with the bar, and the
+  // fill lands seconds to minutes later on that same bar's close.
+  const cutoff = openedMs + 60 * 60 * 1000;
+  return mine.find((d) => Date.parse(d.at) <= cutoff) ?? null;
+}
+
+/**
  * Everything known about one trade, in one place.
  *
  * WHAT IT ANSWERS THAT THE ROW CANNOT: which route opened this, what the
@@ -65,20 +96,46 @@ export function PositionDetail({
   const [candles, setCandles] = useState<Candle[]>([]);
   const [verdict, setVerdict] = useState<AiStatus["decisions"][number] | null>(null);
   const [loading, setLoading] = useState(false);
+  // 30m first because it is the bar the engine decided on. The others are
+  // offered because a level that looks arbitrary on the trading bar often sits
+  // exactly on a 4h high, and that is not visible without changing frame.
+  const [timeframe, setTimeframe] = useState<"15m" | "30m" | "1h" | "4h">("30m");
+
+  // KEYED ON THE SYMBOL AND SIDE, NEVER ON THE `target` OBJECT.
+  //
+  // The parent builds that object inline and re-renders every four seconds
+  // from its own poll, so its identity changes on every tick. Depending on it
+  // re-ran this effect four times a minute, and each run reset the chart to
+  // "Reading the lake…" before the previous fetch could paint — a spinner that
+  // never resolved, on data that was arriving perfectly well.
+  const symbol = target?.symbol ?? null;
+  const side = target?.side ?? null;
+  const interval = timeframe;
+  // A CLOSED TRADE ANCHORS THE CHART TO ITS OWN CLOSE, not to now. The history
+  // page opens this panel for round trips that may be a week old; anchored to
+  // now, the reader gets five days of price action that has nothing to do with
+  // the row they clicked, with the trade itself off the right edge. Open
+  // positions send nothing and keep following the live edge.
+  const endMs = target?.closedAt ? Date.parse(target.closedAt) : null;
+  const anchor = endMs && Number.isFinite(endMs) ? endMs : null;
+  const parsedOpen = target?.openedAt ? Date.parse(target.openedAt) : NaN;
+  const openedMs = Number.isFinite(parsedOpen) ? parsedOpen : null;
 
   useEffect(() => {
-    if (!target) return;
+    if (!symbol || !side) return;
     let alive = true;
     setLoading(true);
-    setCandles([]);
-    setVerdict(null);
 
     void (async () => {
       try {
         const [candleRes, aiRes] = await Promise.all([
-          fetch(`/api/candles?symbol=${encodeURIComponent(target.symbol)}&interval=30m`, {
-            cache: "no-store",
-          }),
+          fetch(
+            `/api/candles?symbol=${encodeURIComponent(symbol)}&interval=${interval}` +
+              // Half a window past the close, so the trade sits in the middle
+              // of the chart rather than hard against its right edge.
+              (anchor ? `&end=${anchor + 2 * 24 * 60 * 60 * 1000}` : ""),
+            { cache: "no-store" },
+          ),
           fetch("/api/ai", { cache: "no-store" }),
         ]);
         if (alive && candleRes.ok) {
@@ -87,13 +144,7 @@ export function PositionDetail({
         }
         if (alive && aiRes.ok) {
           const body = (await aiRes.json()) as AiStatus;
-          // The most recent verdict for this symbol and side. A symbol judged
-          // several times has several rows, and the one that describes THIS
-          // position is the latest.
-          const match = body.decisions.find(
-            (d) => d.symbol === target.symbol && d.side === target.side,
-          );
-          setVerdict(match ?? null);
+          setVerdict(pickVerdict(body.decisions, symbol, side, openedMs));
         }
       } catch {
         /* the panel renders without the chart rather than not at all */
@@ -105,7 +156,7 @@ export function PositionDetail({
     return () => {
       alive = false;
     };
-  }, [target]);
+  }, [symbol, side, interval, anchor, openedMs]);
 
   // Escape closes. A modal that can only be dismissed by hitting a small X is
   // a modal that traps somebody on a phone.
@@ -126,7 +177,14 @@ export function PositionDetail({
           colour: "var(--color-ink-secondary)",
         },
         ...(target.stopPrice
-          ? [{ price: target.stopPrice, label: "stop", colour: "var(--color-loss)", dashed: true }]
+          ? [
+              {
+                price: target.stopPrice,
+                label: "stop",
+                colour: "var(--color-loss)",
+                dashed: true,
+              },
+            ]
           : []),
         ...(target.takeProfitPrice
           ? [
@@ -139,7 +197,13 @@ export function PositionDetail({
             ]
           : []),
         ...(target.exitPrice
-          ? [{ price: target.exitPrice, label: "exit", colour: "var(--color-solana-bright)" }]
+          ? [
+              {
+                price: target.exitPrice,
+                label: "exit",
+                colour: "var(--color-solana-bright)",
+              },
+            ]
           : []),
       ]
     : [];
@@ -162,20 +226,21 @@ export function PositionDetail({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.99 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="border-[var(--color-border)] max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border bg-[var(--color-surface-raised)] p-6 shadow-2xl"
+            /* Wide on a desktop because the chart is the point, and 720px of
+               SVG squeezed into 640 makes every candle a hairline; still one
+               column and full width on a phone. */
+            className="border-[var(--color-border)] max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl border bg-[var(--color-surface-raised)] p-4 shadow-2xl sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-xl font-semibold tracking-tight">{target.symbol}</h2>
                   <Badge intent={target.side}>{target.side}</Badge>
                   {target.strategy ? (
                     <Badge intent="neutral">{target.strategy}</Badge>
                   ) : (
-                    <span className="text-[var(--color-ink-muted)] text-[10px]">
-                      route unknown
-                    </span>
+                    <span className="text-[var(--color-ink-muted)] text-[10px]">route unknown</span>
                   )}
                   {target.leverage ? (
                     <span className="text-[var(--color-ink-muted)] text-[11px]">
@@ -183,30 +248,82 @@ export function PositionDetail({
                     </span>
                   ) : null}
                 </div>
-                <p className="text-[var(--color-ink-muted)] mt-1 text-[11px]">
-                  30-minute candles — the bar the engine decided on.
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <a
+                    href={`https://www.tradingview.com/chart/?symbol=BINANCE%3A${target.symbol}.P`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink)]"
+                  >
+                    TradingView <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <a
+                    href={`https://www.binance.com/en/futures/${target.symbol}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink)]"
+                  >
+                    Binance <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="rounded-lg p-1.5 text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-surface-overlay)] hover:text-[var(--color-ink)]"
+                className="shrink-0 rounded-lg p-1.5 text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-surface-overlay)] hover:text-[var(--color-ink)]"
               >
                 <X className="h-4 w-4" />
               </button>
+            </div>
+
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div
+                role="tablist"
+                aria-label="Chart timeframe"
+                className="inline-flex rounded-lg bg-[var(--color-surface-overlay)] p-0.5"
+              >
+                {(["15m", "30m", "1h", "4h"] as const).map((tf) => (
+                  <button
+                    key={tf}
+                    type="button"
+                    role="tab"
+                    aria-selected={tf === timeframe}
+                    onClick={() => setTimeframe(tf)}
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      tf === timeframe
+                        ? "bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm"
+                        : "text-[var(--color-ink-muted)] hover:text-[var(--color-ink-secondary)]"
+                    }`}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[var(--color-ink-muted)] text-[11px]">
+                {timeframe === "30m"
+                  ? "the bar the engine decided on"
+                  : `${candles.length} bars · engine decides on 30m`}
+              </span>
             </div>
 
             <div className="mb-5">
               {loading ? (
                 <div
                   className="grid place-items-center rounded-xl border border-dashed border-[var(--color-border)] text-xs text-[var(--color-ink-muted)]"
-                  style={{ height: 280 }}
+                  style={{ height: 300 }}
                 >
                   Reading the lake…
                 </div>
               ) : (
-                <CandleChart candles={candles} levels={levels} />
+                // Scrollable on a narrow screen rather than squeezed: a
+                // candle chart compressed to phone width stops being a chart.
+                // The wrapper scrolls; the SVG keeps a readable minimum.
+                <div className="-mx-1 overflow-x-auto px-1">
+                  <div className="min-w-[640px]">
+                    <CandleChart candles={candles} levels={levels} height={300} />
+                  </div>
+                </div>
               )}
             </div>
 
@@ -294,6 +411,46 @@ export function PositionDetail({
                   <p className="text-[var(--color-ink-secondary)] mt-2 text-xs leading-relaxed">
                     {verdict.reason || "No reason given."}
                   </p>
+                  {/* THE VALIDATOR'S LEVELS, WHICH ARE NOT THE POSITION'S.
+                      Nothing in execution reads them — the stop and target
+                      above are what is actually resting on the exchange, set
+                      from ATR and the ROI floor. These are the model's own
+                      answer to the same question, and putting them side by
+                      side is the only way to see when the two disagree. */}
+                  {(verdict.entry !== null ||
+                    verdict.takeProfit !== null ||
+                    verdict.stopLoss !== null) && (
+                    <div className="mt-3 rounded-lg bg-[var(--color-surface-overlay)] px-3 py-2">
+                      <p className="text-[var(--color-ink-muted)] text-[10px]">
+                        Where the model would have put them — an opinion, not what is resting on the
+                        exchange
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        {verdict.entry !== null && (
+                          <span className="text-[var(--color-ink-secondary)]">
+                            {verdict.verdict === "watch" ? "wanted" : "entry"}{" "}
+                            <span className="tabular text-[var(--color-ink)]">{verdict.entry}</span>
+                          </span>
+                        )}
+                        {verdict.takeProfit !== null && (
+                          <span className="text-[var(--color-ink-secondary)]">
+                            TP{" "}
+                            <span className="tabular text-[var(--color-profit)]">
+                              {verdict.takeProfit}
+                            </span>
+                          </span>
+                        )}
+                        {verdict.stopLoss !== null && (
+                          <span className="text-[var(--color-ink-secondary)]">
+                            SL{" "}
+                            <span className="tabular text-[var(--color-loss)]">
+                              {verdict.stopLoss}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-[var(--color-ink-muted)] text-xs leading-relaxed">

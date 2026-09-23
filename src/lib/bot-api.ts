@@ -284,6 +284,12 @@ export type AiStatus = {
     score: number | null;
     reason: string;
     acted: boolean;
+    /** The price the verdict is ABOUT. On a buy it is the market fill; on a
+     *  watch it is the level the model wanted instead. Null on a skip, and on
+     *  every row recorded before the prompt asked for levels. */
+    entry: number | null;
+    takeProfit: number | null;
+    stopLoss: number | null;
   }[];
 };
 
