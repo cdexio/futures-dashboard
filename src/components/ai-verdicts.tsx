@@ -276,7 +276,10 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
                 )}
                 <Levels decision={decision} />
                 <p className="text-[var(--color-ink-muted)] mt-1 text-[10px]">
-                  {relative(decision.at)}
+                  {/* The decision time first: the bar's open alone read as
+                      "52m ago" for a verdict given sixteen minutes earlier. */}
+                  decided {relative(decision.decidedAt ?? decision.at)} · bar{" "}
+                  {new Date(decision.at).toISOString().slice(11, 16)} UTC
                 </p>
               </motion.div>
             );

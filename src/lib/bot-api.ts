@@ -373,7 +373,10 @@ export type AiStatus = {
     day: string;
   };
   decisions: {
+    /** The bar's OPEN time — half an hour before the close it was judged on. */
     at: string;
+    /** When the model answered. */
+    decidedAt?: string;
     symbol: string;
     side: "long" | "short";
     strategy: string;

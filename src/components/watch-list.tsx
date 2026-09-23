@@ -83,10 +83,11 @@ export function WatchList({ initial }: { initial: WatchEntry[] }) {
         A record, not a queue: the AI&apos;s WATCH verdicts (a level it would rather wait for)
         and approved buys the runner could not place, with why. Nothing is executed from
         here — each bar the engine scans again, and a pair that still signals is judged
-        again on the new candle. Entries expire after 1–2 hours.
+        again on the new candle; if the AI approves it again it is placed FIRST, ahead of
+        everything else. Entries expire after 1–2 hours.
       </p>
 
-      <div className="max-h-[320px] space-y-1.5 overflow-y-auto pr-1">
+      <div className="max-h-[720px] space-y-1.5 overflow-y-auto pr-1">
         <AnimatePresence initial={false}>
           {entries.map((entry) => (
             <motion.div
