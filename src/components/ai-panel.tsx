@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Eye, Loader2, Sparkles } from "lucide-react";
 
@@ -217,10 +218,24 @@ export function AiPanel({ initial }: { initial: AiStatus | null }) {
         </dl>
 
         <p className="text-[var(--color-ink-muted)] text-[11px] leading-relaxed">
-          Model {status.model}, up to {status.batchSize} candidates a cycle, {status.timeoutSec}s
-          before it gives up. Past the ceiling the validator stops for the day and the engine
-          keeps trading on its own rules.
+          DeepSeek model {status.model}, up to {status.batchSize} candidates a cycle,{" "}
+          {status.timeoutSec}s before it gives up. Past the ceiling the validator stops for the day
+          and the engine keeps trading on its own rules.
         </p>
+        {status.models && (
+          <p className="text-[var(--color-ink-secondary)] text-[11px] leading-relaxed">
+            Deciding now:{" "}
+            <span className="font-medium text-[var(--color-ink)]">
+              {status.models.decider === "claude" ? "Claude" : "DeepSeek"}
+            </span>{" "}
+            ({status.models.mode}). Switch models, and see Claude&apos;s limits and the
+            comparison, on{" "}
+            <Link href="/trade?tab=engine" className="text-[var(--color-solana-bright)] underline">
+              Trade → Engine &amp; AI
+            </Link>
+            .
+          </p>
+        )}
       </div>
 
       {/* ---- what it has been saying ---- */}

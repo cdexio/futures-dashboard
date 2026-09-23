@@ -1,10 +1,12 @@
 import { Suspense } from "react";
 
+import { AiModelsPanel } from "@/components/ai-models";
 import { LiveFeed } from "@/components/live-feed";
 import { LiveTrade } from "@/components/live-trade";
 import { OpenOrders } from "@/components/open-orders";
 import { ScanFunnel } from "@/components/scan-funnel";
 import { SkeletonStatCells, SkeletonTable } from "@/components/skeleton";
+import { TradeTabs, type TradeTab } from "@/components/trade-tabs";
 import { WatchList } from "@/components/watch-list";
 import { Card, Reveal, Stat } from "@/components/ui";
 import {
@@ -37,85 +39,121 @@ export const revalidate = 0;
  * read before anything was sent. The slow halves are now started here, in
  * parallel, and streamed into their own Suspense boundaries.
  */
-export default async function TradePage() {
+export default async function TradePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab: requested } = await searchParams;
+  const tab: TradeTab = requested === "engine" ? "engine" : "positions";
+
+  return (
+    <div className="space-y-6">
+      <Reveal>
+        <h1 className="text-3xl font-semibold tracking-tight">Trade</h1>
+        <p className="text-[var(--color-ink-secondary)] mt-2 text-sm">
+          {tab === "positions"
+            ? "Open positions, today's result, and the entries still waiting to fill."
+            : "What the engine scanned, what the AI said about it, and which model is deciding."}{" "}
+          This page keeps itself current — no refresh needed.
+        </p>
+      </Reveal>
+
+      <TradeTabs active={tab} />
+
+      {tab === "positions" ? <PositionsTab /> : <EngineTab />}
+    </div>
+  );
+}
+
+/**
+ * TWO TABS, NOT ONE LONG PAGE, and each fetches only its own half. The owner
+ * asked for it on 2026-09-23 because checking a position meant scrolling past
+ * the feed and back; splitting also halves the reads per page load.
+ */
+async function PositionsTab() {
   // `period=day` is MIDNIGHT UTC, not a rolling 24 hours: the boundary the
   // bot's daily loss allowance resets on, so this page's "today" is the bot's.
   const analyticsPromise = botFetch<Analytics>("/api/analytics?period=day");
+  const [account, limits] = await Promise.all([
+    botFetch<AccountSnapshot>("/api/account"),
+    botFetch<Limits>("/api/limits"),
+  ]);
+
+  // `min-w-0` everywhere a table lives: a grid or flex item's automatic
+  // minimum is its content's min-content width, so the open-orders table
+  // (520px, scrollable inside its own box) used to widen the page past a
+  // phone's screen. With a zero minimum the table scrolls, the page does not.
+  return (
+    <div className="min-w-0 space-y-6">
+      <LiveTrade
+        seed={{ account, limits }}
+        realisedSlot={
+          <Suspense fallback={<SkeletonStatCells count={1} />}>
+            <RealisedToday promise={analyticsPromise} />
+          </Suspense>
+        }
+      />
+      {/* Below the positions: the entries still waiting to fill, which is the
+          answer to "is the engine doing anything" when no position is open. */}
+      <Reveal delay={0.06}>
+        <Card className="p-6" hoverable={false}>
+          <OpenOrders />
+        </Card>
+      </Reveal>
+    </div>
+  );
+}
+
+async function EngineTab() {
   const activityPromise = botFetch<{ events: ActivityEvent[] }>("/api/activity?source=engine");
-  // Null rather than a thrown page if it is unreachable; the engine tab is
+  // Null rather than a thrown page if it is unreachable; the engine feed is
   // the one that must always render.
   const aiPromise = botFetch<AiStatus>("/api/ai").catch(() => null);
   const watchPromise = botFetch<{ watching: WatchEntry[] }>("/api/watch").catch(() => ({
     watching: [] as WatchEntry[],
   }));
 
-  const [account, limits] = await Promise.all([
-    botFetch<AccountSnapshot>("/api/account"),
-    botFetch<Limits>("/api/limits"),
-  ]);
-
   return (
-    <div className="space-y-8">
-      <Reveal>
-        <h1 className="text-3xl font-semibold tracking-tight">Trade</h1>
-        <p className="text-[var(--color-ink-secondary)] mt-2 text-sm">
-          Open positions, today&apos;s result, and what the agent is doing right now. This page
-          keeps itself current — no refresh needed.
-        </p>
-      </Reveal>
-
-      {/* `min-w-0` on both columns, and `minmax(0, …)` in the template: a grid
-          item's automatic minimum is its content's min-content width, so the
-          open-orders table (520px, scrollable inside its own box) widened the
-          whole column past a phone's screen and pushed every card off its
-          right edge. With a zero minimum the table scrolls, the page does not. */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="min-w-0 space-y-6">
-          <LiveTrade
-            seed={{ account, limits }}
-            realisedSlot={
-              <Suspense fallback={<SkeletonStatCells count={1} />}>
-                <RealisedToday promise={analyticsPromise} />
-              </Suspense>
-            }
-          />
-          {/* Below the positions: the entries still waiting to fill, which is
-              the answer to "is the engine doing anything" when no position is
-              open yet. */}
-          <Reveal delay={0.06}>
-            <Card className="p-6" hoverable={false}>
-              <OpenOrders />
-            </Card>
-          </Reveal>
-        </div>
-        <div className="min-w-0 space-y-6">
-          <Reveal delay={0.08}>
-            <Card className="p-6" hoverable={false}>
-              <Suspense fallback={<SkeletonTable rows={6} />}>
-                <Feed activity={activityPromise} ai={aiPromise} />
-              </Suspense>
-            </Card>
-          </Reveal>
-          {/* Above the watch list: it answers the question asked most often
-              on this page — "why is nothing opening?" — with the rule that
-              stopped each pair, instead of leaving it to be read out of log
-              lines. */}
-          <Reveal delay={0.1}>
-            <Card className="p-6" hoverable={false}>
-              <ScanFunnel />
-            </Card>
-          </Reveal>
-          <Reveal delay={0.12}>
-            <Card className="p-6" hoverable={false}>
-              <Suspense fallback={<SkeletonTable rows={3} />}>
-                <Watching promise={watchPromise} />
-              </Suspense>
-            </Card>
-          </Reveal>
-        </div>
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <div className="min-w-0 space-y-6">
+        <Reveal delay={0.04}>
+          <Card className="p-6" hoverable={false}>
+            <Suspense fallback={<SkeletonTable rows={6} />}>
+              <Feed activity={activityPromise} ai={aiPromise} />
+            </Suspense>
+          </Card>
+        </Reveal>
+      </div>
+      <div className="min-w-0 space-y-6">
+        <Reveal delay={0.06}>
+          <Card className="p-6" hoverable={false}>
+            <Suspense fallback={<SkeletonTable rows={4} />}>
+              <Models promise={aiPromise} />
+            </Suspense>
+          </Card>
+        </Reveal>
+        {/* Above the watch list: it answers "why is nothing opening?" with the
+            rule that stopped each pair, instead of leaving it to log lines. */}
+        <Reveal delay={0.08}>
+          <Card className="p-6" hoverable={false}>
+            <ScanFunnel />
+          </Card>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <Card className="p-6" hoverable={false}>
+            <Suspense fallback={<SkeletonTable rows={3} />}>
+              <Watching promise={watchPromise} />
+            </Suspense>
+          </Card>
+        </Reveal>
       </div>
     </div>
   );
+}
+
+async function Models({ promise }: { promise: Promise<AiStatus | null> }) {
+  return <AiModelsPanel initial={await promise} />;
 }
 
 async function RealisedToday({ promise }: { promise: Promise<Analytics> }) {

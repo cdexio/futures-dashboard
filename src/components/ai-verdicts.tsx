@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { Check, Eye, Sparkles, X } from "lucide-react";
 
 import { Badge } from "@/components/ui";
-import type { AiStatus } from "@/lib/bot-api";
+import type { AiModel, AiStatus } from "@/lib/bot-api";
 import { price, relative } from "@/lib/format";
+
+const MODEL_LABEL: Record<AiModel, string> = { deepseek: "DeepSeek", claude: "Claude" };
 
 const VERDICT = {
   buy: { icon: Check, intent: "good" as const, said: "worth buying" },
@@ -126,6 +128,9 @@ function Checkpoint({ checkpoint }: { checkpoint: AiStatus["checkpoint"] }) {
  */
 export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
   const [status, setStatus] = useState(initial);
+  // Both models answer every bar, so an unfiltered list shows each candidate
+  // twice. Filter by model, or read them side by side with "all".
+  const [only, setOnly] = useState<"all" | AiModel>("all");
 
   useEffect(() => {
     let alive = true;
@@ -157,18 +162,43 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
   }
 
   const { quota } = status;
-  const counts = status.decisions.reduce<Record<string, number>>((acc, d) => {
+  const decider = status.models?.decider;
+  const decisions = status.decisions.filter(
+    (d) => only === "all" || (d.model ?? "deepseek") === only,
+  );
+  const counts = decisions.reduce<Record<string, number>>((acc, d) => {
     acc[d.verdict] = (acc[d.verdict] ?? 0) + 1;
     return acc;
   }, {});
+  const models = new Set(status.decisions.map((d) => d.model ?? "deepseek"));
 
   return (
     <div>
+      {models.size > 1 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[11px]">
+          {(["all", "deepseek", "claude"] as const).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setOnly(id)}
+              className={`rounded-md border px-2 py-1 transition-colors ${
+                only === id
+                  ? "border-[var(--color-solana-dim)] bg-[var(--color-solana)]/12 text-[var(--color-ink)]"
+                  : "border-[var(--color-border)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink-secondary)]"
+              }`}
+            >
+              {id === "all" ? "All models" : MODEL_LABEL[id]}
+              {id === decider && " · deciding"}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* The running total, so a reader can see at a glance whether the
           validator is refusing everything — which is a failure mode, not
           caution, and one this system has already had. */}
       <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px]">
-        <span className="text-[var(--color-ink-muted)]">last {status.decisions.length}:</span>
+        <span className="text-[var(--color-ink-muted)]">last {decisions.length}:</span>
         <span className="text-[var(--color-profit)]">{counts.buy ?? 0} buy</span>
         <span className="text-[var(--color-ink-secondary)]">{counts.skip ?? 0} skip</span>
         <span className="text-[var(--color-warning)]">{counts.watch ?? 0} watch</span>
@@ -179,7 +209,7 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
 
       <Checkpoint checkpoint={status.checkpoint} />
 
-      {status.decisions.length > 0 && (counts.buy ?? 0) === 0 && (
+      {decisions.length > 0 && (counts.buy ?? 0) === 0 && (
         <p className="mb-3 rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-warning)]">
           Every recent candidate was refused. These had already passed regime routing, strategy
           selection, an entry ceiling and a score — so a validator refusing all of them is applying
@@ -189,12 +219,13 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
 
       <div className="max-h-[420px] space-y-1.5 overflow-y-auto pr-1">
         <AnimatePresence initial={false}>
-          {status.decisions.map((decision, index) => {
+          {decisions.map((decision, index) => {
             const shape = VERDICT[decision.verdict] ?? VERDICT.skip;
             const Icon = shape.icon;
+            const model = decision.model ?? "deepseek";
             return (
               <motion.div
-                key={`${decision.at}-${decision.symbol}-${index}`}
+                key={`${decision.at}-${decision.symbol}-${model}-${index}`}
                 layout
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -214,6 +245,15 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
                   />
                   <span className="text-xs font-semibold">{decision.symbol}</span>
                   <Badge intent={decision.side}>{decision.side}</Badge>
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide uppercase ${
+                      model === "claude"
+                        ? "bg-[#d97757]/15 text-[#e8a283]"
+                        : "bg-[var(--color-solana)]/12 text-[var(--color-solana-bright)]"
+                    }`}
+                  >
+                    {MODEL_LABEL[model]}
+                  </span>
                   <span className="text-[var(--color-ink-muted)] text-[10px]">
                     {decision.strategy}
                   </span>
@@ -243,7 +283,7 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
           })}
         </AnimatePresence>
 
-        {!status.decisions.length && (
+        {!decisions.length && (
           <p className="text-[var(--color-ink-muted)] px-3 py-8 text-center text-xs">
             <Sparkles className="mx-auto mb-2 h-4 w-4 opacity-50" />
             The validator has not spoken yet. It reviews candidates once a cycle, and only when

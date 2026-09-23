@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 
+import { Clock } from "@/components/clock";
+
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/trade", label: "Trade", icon: Activity },
@@ -116,6 +118,11 @@ export function Shell({ children, email }: { children: React.ReactNode; email?: 
       </nav>
 
       <main className="min-w-0 flex-1 pb-24 lg:pb-0">
+        {/* Outside the transition boundary, so the clock keeps ticking
+            instead of re-mounting on every navigation. */}
+        <div className="mx-auto flex max-w-[1600px] justify-end px-5 pt-4 lg:px-10">
+          <Clock />
+        </div>
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}
@@ -123,7 +130,7 @@ export function Shell({ children, email }: { children: React.ReactNode; email?: 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="mx-auto max-w-[1600px] px-5 py-8 lg:px-10"
+            className="mx-auto max-w-[1600px] px-5 pt-4 pb-8 lg:px-10"
           >
             {children}
           </motion.div>

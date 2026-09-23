@@ -267,6 +267,68 @@ export type WatchEntry = {
 };
 
 /** The validator's state, spend and recent verdicts. */
+export type AiModel = "deepseek" | "claude";
+
+/** What the trader last knew about one model, stored each cycle. */
+export type AiModelState = {
+  enabled: boolean;
+  /** The model actually answering, e.g. `claude-sonnet-5`. */
+  model: string;
+  /** DeepSeek: `{available, balance_usd}`. Claude: the subscription's
+   *  `rate_limit_event` — utilisation 0..1 per window, resets in epoch s. */
+  limits: {
+    available?: boolean;
+    balance_usd?: number;
+    status?: string;
+    limiting_window?: string;
+    five_hour?: number;
+    five_hour_resets_at?: number;
+    seven_day?: number;
+    seven_day_resets_at?: number;
+    seen_at?: string;
+  } | null;
+  over_budget: boolean;
+  auth_failed: boolean;
+  last_error: string;
+  last_call_ok: boolean;
+  calls_today: number;
+  usd_today: number;
+  at: string;
+};
+
+export type AiModels = {
+  decider: AiModel;
+  /** manual: never switches by itself. auto: switches only when the model in
+   *  use runs out of limit, and only to one that has some left. */
+  mode: "manual" | "auto";
+  compareBoth: boolean;
+  claudeEnabled: boolean;
+  thresholds: {
+    deepseekMinBalanceUsd: number;
+    claudeMaxFiveHour: number;
+    claudeMaxSevenDay: number;
+  };
+  limits: Partial<Record<AiModel, AiModelState | null>>;
+  switches: { at: string; from: AiModel; to: AiModel; reason: string }[];
+  /** On candidates BOTH models answered: same bar, same minute. */
+  compare: {
+    sharedCandidates: number;
+    agreement?: number | null;
+    models: Partial<
+      Record<
+        AiModel,
+        {
+          counts: Partial<Record<"buy" | "skip" | "watch", number>>;
+          buyMean4h: number | null;
+          skipMean4h: number | null;
+          buyMeasured: number;
+        }
+      >
+    >;
+    error?: string;
+  };
+};
+
 export type AiStatus = {
   /** What is true right now — the runtime switch. */
   enabled: boolean;
@@ -310,7 +372,11 @@ export type AiStatus = {
     /** Hours the model said the idea deserves, raw. Acted on only when the
      *  validator is deciding, and clamped to the owner's window when it is. */
     maxHoldHours: number | null;
+    /** Which model gave the verdict. Both answer every bar; only the
+     *  decider's verdicts are acted on. Absent on rows before 2026-09-23. */
+    model?: AiModel;
   }[];
+  models?: AiModels;
   /** The review agreed on 2026-09-23: after `target` deciding-mode buys have
    *  a complete 4h window, compare them with the skips. Buys that do not beat
    *  the skips send the validator back to shadow. */
