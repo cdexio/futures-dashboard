@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ExternalLink, X } from "lucide-react";
 
 import { CandleChart } from "@/components/candle-chart";
@@ -109,6 +110,9 @@ export function PositionDetail({
   // offered because a level that looks arbitrary on the trading bar often sits
   // exactly on a 4h high, and that is not visible without changing frame.
   const [timeframe, setTimeframe] = useState<"15m" | "30m" | "1h" | "4h">("30m");
+  // `document` exists only in the browser; the portal waits for it.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // KEYED ON THE SYMBOL AND SIDE, NEVER ON THE `target` OBJECT.
   //
@@ -219,7 +223,15 @@ export function PositionDetail({
 
   const pnl = target?.realizedPnl ?? target?.unrealizedPnl ?? null;
 
-  return (
+  // RENDERED INTO <body>, NOT WHERE IT IS DECLARED. `position: fixed` is only
+  // fixed to the viewport while no ancestor has a transform, a filter or a
+  // backdrop-filter — and every card here has two of them (`.glass` blurs its
+  // backdrop, `Reveal` animates a transform). On the history page the panel
+  // sits inside the table's card, so it was positioned against that card and
+  // clipped by its `overflow-hidden`: it opened half off the bottom of the
+  // screen behind a blur that covered only the table.
+  if (!mounted) return null;
+  return createPortal(
     <AnimatePresence>
       {target && (
         <motion.div
@@ -487,6 +499,7 @@ export function PositionDetail({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

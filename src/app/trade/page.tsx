@@ -1,8 +1,12 @@
+import { Suspense } from "react";
+
 import { LiveFeed } from "@/components/live-feed";
 import { LiveTrade } from "@/components/live-trade";
+import { OpenOrders } from "@/components/open-orders";
 import { ScanFunnel } from "@/components/scan-funnel";
+import { SkeletonStatCells, SkeletonTable } from "@/components/skeleton";
 import { WatchList } from "@/components/watch-list";
-import { Card, Reveal } from "@/components/ui";
+import { Card, Reveal, Stat } from "@/components/ui";
 import {
   botFetch,
   type AccountSnapshot,
@@ -12,6 +16,7 @@ import {
   type Limits,
   type WatchEntry,
 } from "@/lib/bot-api";
+import { TONE_CLASS, money, tone } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -25,35 +30,28 @@ export const revalidate = 0;
  * data instead of a skeleton, which matters on the one page somebody opens
  * specifically to check a number.
  *
- * Today's realised PnL stays server-side: it changes only when a position
- * closes, and the endpoint that computes it walks the whole day's fills. There
- * is no reason to pay for that every four seconds.
+ * ONLY THE FAST READS ARE AWAITED. Measured 2026-09-23: account 0.4 s and
+ * limits 0.3 s, against 1.1 s for today's realised PnL (it walks the day's
+ * fills) and 1.3 s for the activity feed. They used to be one `Promise.all`,
+ * so the whole page — balance and positions included — waited for the slowest
+ * read before anything was sent. The slow halves are now started here, in
+ * parallel, and streamed into their own Suspense boundaries.
  */
 export default async function TradePage() {
-  const [account, limits, analytics, activity, aiStatus, watch] = await Promise.all([
+  // `period=day` is MIDNIGHT UTC, not a rolling 24 hours: the boundary the
+  // bot's daily loss allowance resets on, so this page's "today" is the bot's.
+  const analyticsPromise = botFetch<Analytics>("/api/analytics?period=day");
+  const activityPromise = botFetch<{ events: ActivityEvent[] }>("/api/activity?source=engine");
+  // Null rather than a thrown page if it is unreachable; the engine tab is
+  // the one that must always render.
+  const aiPromise = botFetch<AiStatus>("/api/ai").catch(() => null);
+  const watchPromise = botFetch<{ watching: WatchEntry[] }>("/api/watch").catch(() => ({
+    watching: [] as WatchEntry[],
+  }));
+
+  const [account, limits] = await Promise.all([
     botFetch<AccountSnapshot>("/api/account"),
     botFetch<Limits>("/api/limits"),
-    // `period=day` is MIDNIGHT UTC, not a rolling 24 hours.
-    //
-    // This card is labelled "Realized PnL · today" and sits beside one reading
-    // "on $94.85 at 00:00 UTC". With `days=1` the two measured different
-    // periods: on 2026-09-22 the rolling window reached back to 14:46 the
-    // previous day and showed 22 trades at -$2.02, while the UTC day beside it
-    // held 8 trades at +$6.14. The owner read the minus sign and asked whether
-    // the day's changes had made things worse. They had not; the two cards
-    // simply did not mean the same thing by "today".
-    //
-    // Midnight UTC is also the boundary the bot's daily loss allowance resets
-    // on, so this page's "today" is now the bot's own day.
-    botFetch<Analytics>("/api/analytics?period=day"),
-    botFetch<{ events: ActivityEvent[] }>("/api/activity?source=engine"),
-    // The AI tab renders STRUCTURED decisions, not parsed log lines: the
-    // validator's verdicts exist as columns — verdict, score, reason, whether
-    // anyone acted — and flattening them into sentences to re-parse would
-    // throw all of that away. Null rather than a thrown page if it is
-    // unreachable; the engine tab is the one that must always render.
-    botFetch<AiStatus>("/api/ai").catch(() => null),
-    botFetch<{ watching: WatchEntry[] }>("/api/watch"),
   ]);
 
   return (
@@ -67,15 +65,30 @@ export default async function TradePage() {
       </Reveal>
 
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <LiveTrade
-          seed={{ account, limits }}
-          closedToday={analytics.performance.trades}
-          realisedToday={analytics.performance.netPnl}
-        />
+        <div className="space-y-6">
+          <LiveTrade
+            seed={{ account, limits }}
+            realisedSlot={
+              <Suspense fallback={<SkeletonStatCells count={1} />}>
+                <RealisedToday promise={analyticsPromise} />
+              </Suspense>
+            }
+          />
+          {/* Below the positions: the entries still waiting to fill, which is
+              the answer to "is the engine doing anything" when no position is
+              open yet. */}
+          <Reveal delay={0.06}>
+            <Card className="p-6" hoverable={false}>
+              <OpenOrders />
+            </Card>
+          </Reveal>
+        </div>
         <div className="space-y-6">
           <Reveal delay={0.08}>
             <Card className="p-6" hoverable={false}>
-              <LiveFeed initial={activity.events} initialAi={aiStatus} />
+              <Suspense fallback={<SkeletonTable rows={6} />}>
+                <Feed activity={activityPromise} ai={aiPromise} />
+              </Suspense>
             </Card>
           </Reveal>
           {/* Above the watch list: it answers the question asked most often
@@ -89,11 +102,56 @@ export default async function TradePage() {
           </Reveal>
           <Reveal delay={0.12}>
             <Card className="p-6" hoverable={false}>
-              <WatchList initial={watch.watching} />
+              <Suspense fallback={<SkeletonTable rows={3} />}>
+                <Watching promise={watchPromise} />
+              </Suspense>
             </Card>
           </Reveal>
         </div>
       </div>
     </div>
   );
+}
+
+async function RealisedToday({ promise }: { promise: Promise<Analytics> }) {
+  // A failed read shows a dash, not a broken page: this card is the only one
+  // on the page that needs the day's fills.
+  const analytics = await promise.catch(() => null);
+  if (!analytics) {
+    return (
+      <Stat label="Realized PnL · today" delay={0.1} sub="unavailable">
+        —
+      </Stat>
+    );
+  }
+  const p = analytics.performance;
+  return (
+    <Stat
+      label="Realized PnL · today"
+      delay={0.1}
+      sub={`${p.trades} closed`}
+      className={TONE_CLASS[tone(p.netPnl)]}
+    >
+      {money(p.netPnl, { signed: true })}
+    </Stat>
+  );
+}
+
+async function Feed({
+  activity,
+  ai,
+}: {
+  activity: Promise<{ events: ActivityEvent[] }>;
+  ai: Promise<AiStatus | null>;
+}) {
+  const [events, aiStatus] = await Promise.all([
+    activity.catch(() => ({ events: [] as ActivityEvent[] })),
+    ai,
+  ]);
+  return <LiveFeed initial={events.events} initialAi={aiStatus} />;
+}
+
+async function Watching({ promise }: { promise: Promise<{ watching: WatchEntry[] }> }) {
+  const watch = await promise;
+  return <WatchList initial={watch.watching} />;
 }

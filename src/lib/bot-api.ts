@@ -322,6 +322,21 @@ export type ScanSummary = {
   equity?: number;
 };
 
+/** One order resting on the exchange. `kind` is what it is FOR: an entry the
+ *  market has not taken yet, or the stop / take-profit protecting a position.
+ *  `manual` is an order this bot did not place. */
+export type OpenOrder = {
+  symbol: string;
+  kind: "entry" | "stop" | "take_profit" | "exit" | "manual";
+  type: string;
+  side: string;
+  price: number | null;
+  quantity: number | null;
+  filled: number;
+  postOnly: boolean;
+  placedAt: string | null;
+};
+
 export type ScanHistoryRow = {
   at: string;
   universe: number | null;

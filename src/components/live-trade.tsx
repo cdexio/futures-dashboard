@@ -26,12 +26,14 @@ import { TONE_CLASS, duration, money, percent, price, quantity, tone, utcTime } 
  */
 export function LiveTrade({
   seed,
-  closedToday,
-  realisedToday,
+  realisedSlot,
 }: {
   seed: LiveSnapshot;
-  closedToday: number;
-  realisedToday: number;
+  /** Today's realised PnL, rendered by the SERVER and streamed in. It is a
+   *  slot rather than two numbers because computing it walks the day's fills
+   *  — about a second — and taking it as props made the balance, the
+   *  positions and every other card on the page wait for that second. */
+  realisedSlot: React.ReactNode;
 }) {
   const { data, stale, at } = useLive<LiveSnapshot>("/api/live", seed, 4000);
   const { account, limits } = data;
@@ -81,14 +83,7 @@ export function LiveTrade({
         >
           {money(account.unrealizedPnl, { signed: true })}
         </Stat>
-        <Stat
-          label="Realized PnL · today"
-          delay={0.1}
-          sub={`${closedToday} closed`}
-          className={TONE_CLASS[tone(realisedToday)]}
-        >
-          {money(realisedToday, { signed: true })}
-        </Stat>
+        {realisedSlot}
         <Stat
           label="ROI · today"
           delay={0.14}
