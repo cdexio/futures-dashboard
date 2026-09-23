@@ -5,8 +5,10 @@ import { NotAuthorised, botFetch, type Candle } from "@/lib/bot-api";
  *  free text to travel through. */
 const INTERVALS = new Set(["15m", "30m", "1h", "4h"]);
 
-/** Symbols are uppercase letters and digits. Anything else is not a pair. */
-const SYMBOL = /^[A-Z0-9]{2,20}$/;
+/** Letters and digits in any script — the universe holds `龙虾USDT`, which an
+ *  A-Z pattern refused, so its detail panel opened with no chart. Nothing
+ *  that could break out of a query string passes either way. */
+const SYMBOL = /^[\p{L}\p{N}]{2,24}$/u;
 
 /**
  * Candles for one symbol, from the lake the engine itself decided on.
@@ -36,7 +38,7 @@ export async function GET(request: Request) {
 
   try {
     const data = await botFetch<{ candles: Candle[] }>(
-      `/api/candles?symbol=${symbol}&interval=${interval}${end ? `&end=${end}` : ""}`,
+      `/api/candles?symbol=${encodeURIComponent(symbol)}&interval=${interval}${end ? `&end=${end}` : ""}`,
     );
     return Response.json(data);
   } catch (error) {

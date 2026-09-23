@@ -50,6 +50,20 @@ export async function botFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return (await response.json()) as T;
 }
 
+/**
+ * A non-JSON answer from the bot API — a CSV export — behind the same two
+ * factors as `botFetch`. The body and headers are passed through untouched.
+ */
+export async function botFetchRaw(path: string): Promise<Response> {
+  await requireSession();
+  return fetch(`${BASE}${path}`, {
+    cache: "no-store",
+    // An export walks every fill in its window and reads the lake; it is
+    // allowed longer than a page read, not forever.
+    signal: AbortSignal.timeout(60_000),
+  });
+}
+
 export type Position = {
   symbol: string;
   side: "long" | "short";

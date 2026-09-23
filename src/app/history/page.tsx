@@ -1,3 +1,5 @@
+import { Download } from "lucide-react";
+
 import { HistoryTable } from "@/components/history-table";
 import { Card, EmptyState, Reveal, SectionTitle, Stat } from "@/components/ui";
 import { botFetch, type ClosedTrade } from "@/lib/bot-api";
@@ -39,6 +41,24 @@ export default async function HistoryPage({
               Every closed round trip, with both ends: when it opened and when it closed.
             </p>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The engine-vs-AI record, as files a spreadsheet opens. Plain
+                links: the route answers with Content-Disposition, so the
+                browser downloads rather than navigates. */}
+            <a
+              href={`/api/export/trades?days=${days}`}
+              className="glass inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink)]"
+              title="Every closed trade with its route, engine score and the AI's verdict at entry"
+            >
+              <Download className="h-3.5 w-3.5" /> Trades CSV
+            </a>
+            <a
+              href={`/api/export/verdicts?days=${days}`}
+              className="glass inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink)]"
+              title="Every AI verdict, refusals included, with where price went 2/4/8 hours later"
+            >
+              <Download className="h-3.5 w-3.5" /> AI verdicts CSV
+            </a>
           <div className="glass flex gap-1 rounded-xl p-1">
             {ranges.map((range) => (
               <a
@@ -53,6 +73,7 @@ export default async function HistoryPage({
                 {range.label}
               </a>
             ))}
+          </div>
           </div>
         </div>
       </Reveal>
