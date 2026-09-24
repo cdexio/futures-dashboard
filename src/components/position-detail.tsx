@@ -151,11 +151,15 @@ function px(v: number | null | undefined): string {
  * it to Tuesday's trade would put words in the validator's mouth about a trade
  * it never saw.
  *
- * So when the open time is known, the answer is the last verdict at or BEFORE
- * it. `bar_ts` is the bar the candidate was born on and the position opened on
- * the bar after, so a verdict for this trade is always in the past; one in the
- * future belongs to a later idea. `decisions` arrives newest-first, so the
- * first match walking forward is the closest one.
+ * So when the open time is known, the answer is the last verdict DECIDED at or
+ * before it — `decidedAt`, not `at`. `at` is the bar's OPEN stamp, and the NEXT
+ * bar opens exactly when this one closes, minutes before the fill: matching on
+ * it attached the following bar's "skip — already held" to the very trade the
+ * previous bar's "buy" had opened (ZESTUSDT, 2026-09-24: buy decided 04:04 UTC
+ * on the 00:00 bar, filled 04:05; skip decided 08:04 on the 04:00 bar, shown
+ * as the reason). A decision is always made before its own fill, so two
+ * minutes of clock allowance is all it needs. `decisions` arrives
+ * newest-first, so the first match walking forward is the closest one.
  */
 function pickVerdict(
   decisions: AiStatus["decisions"],
@@ -168,10 +172,8 @@ function pickVerdict(
   const all = decisions.filter((d) => d.symbol === symbol && d.side === side);
   const mine = [...all.filter((d) => d.acted), ...all.filter((d) => !d.acted)];
   if (openedMs === null) return mine[0] ?? null;
-  // A small allowance forward: the verdict is stamped with the bar, and the
-  // fill lands seconds to minutes later on that same bar's close.
-  const cutoff = openedMs + 60 * 60 * 1000;
-  return mine.find((d) => Date.parse(d.at) <= cutoff) ?? null;
+  const cutoff = openedMs + 2 * 60 * 1000;
+  return mine.find((d) => Date.parse(d.decidedAt ?? d.at) <= cutoff) ?? null;
 }
 
 /**
@@ -218,10 +220,9 @@ export function PositionDetail({
         }
       : null);
   const [loading, setLoading] = useState(false);
-  // 30m first because it is the bar the engine decided on. The others are
-  // offered because a level that looks arbitrary on the trading bar often sits
-  // exactly on a 4h high, and that is not visible without changing frame.
-  const [timeframe, setTimeframe] = useState<"15m" | "30m" | "1h" | "4h">("30m");
+  // 4h first because it is the bar the engine decides on since 2026-09-24
+  // (30m before). The others are offered to see inside the trading bar.
+  const [timeframe, setTimeframe] = useState<"15m" | "30m" | "1h" | "4h">("4h");
   // `document` exists only in the browser; the portal waits for it.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
