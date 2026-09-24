@@ -5,8 +5,9 @@ import {
   CumulativePctChart,
   CumulativePnlChart,
   DailyPnlChart,
-  SymbolChart,
+  TimeOfDayChart,
   type CumulativePoint,
+  type TimeSlot,
 } from "@/components/charts";
 import { RouteCards } from "@/components/route-cards";
 import { SkeletonChart, SkeletonStatCells, SkeletonStats } from "@/components/skeleton";
@@ -16,6 +17,7 @@ import {
   type Analytics,
   type AccountSnapshot,
   type Candle,
+  type ClosedTrade,
   type Limits,
   type RouteStats,
 } from "@/lib/bot-api";
@@ -63,6 +65,12 @@ export default async function DashboardPage({
   const limitsPromise = botFetch<Limits>("/api/limits");
   const analyticsPromise = botFetch<Analytics>(`/api/analytics?days=${days}`);
   const routesPromise = botFetch<{ routes: RouteStats[] }>(`/api/routes?days=${days}`);
+  // All time, whatever range is picked: the by-hour chart asks which hours
+  // work, and seven days is too few trades to say. 365 days covers the
+  // account's whole history (first trade 2026-07-05); kept warm by the API.
+  const allTimePromise = botFetch<{ trades: ClosedTrade[] }>("/api/history?days=365")
+    .then((body) => body.trades)
+    .catch(() => [] as ClosedTrade[]);
   // The benchmark line: optional, so it never holds the charts back. A read
   // slower than BTC_WAIT_MS or a failed one drops the line, not the chart.
   const btcPromise = Promise.race([
@@ -157,7 +165,7 @@ export default async function DashboardPage({
           </div>
         }
       >
-        <BreakdownCharts promise={analyticsPromise} />
+        <BreakdownCharts promise={analyticsPromise} allTime={allTimePromise} />
       </Suspense>
     </div>
   );
@@ -336,8 +344,15 @@ async function CumulativeCharts({
 
 /** Daily and per-symbol breakdowns. Own boundary: they need only the
  *  analytics, never the BTC benchmark. */
-async function BreakdownCharts({ promise }: { promise: Promise<Analytics> }) {
-  const analytics = await promise;
+async function BreakdownCharts({
+  promise,
+  allTime,
+}: {
+  promise: Promise<Analytics>;
+  allTime: Promise<ClosedTrade[]>;
+}) {
+  const [analytics, trades] = await Promise.all([promise, allTime]);
+  const slots = byOpenHour(trades);
   return (
     <>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -353,17 +368,41 @@ async function BreakdownCharts({ promise }: { promise: Promise<Analytics> }) {
         </Reveal>
         <Reveal delay={0.08}>
           <Card className="p-6" hoverable={false}>
-            <SectionTitle title="By symbol" hint="Worst first" />
-            {analytics.bySymbol.length ? (
-              <SymbolChart data={analytics.bySymbol} />
+            <SectionTitle title="By time" hint={`All time · ${trades.length} trades · UTC open hour`} />
+            {trades.length ? (
+              <TimeOfDayChart data={slots} />
             ) : (
-              <EmptyState title="No symbols traded yet" />
+              <EmptyState title="No closed trades yet" />
             )}
           </Card>
         </Reveal>
       </div>
     </>
   );
+}
+
+/**
+ * Every closed trade, bucketed by the UTC hour it was OPENED, in 3-hour
+ * slots. By open rather than close because the question is when the bot
+ * should be entering; with holds up to 48 hours, the close hour says little
+ * about the decision. UTC to match the bot's clock and its weekly limit.
+ */
+function byOpenHour(trades: ClosedTrade[]): TimeSlot[] {
+  const slots: TimeSlot[] = Array.from({ length: 8 }, (_, i) => ({
+    slot: `${String(i * 3).padStart(2, "0")}:00`,
+    netPnl: 0,
+    trades: 0,
+    wins: 0,
+  }));
+  for (const trade of trades) {
+    const opened = new Date(trade.openedAt);
+    if (!Number.isFinite(opened.getTime())) continue;
+    const slot = slots[Math.floor(opened.getUTCHours() / 3)];
+    slot.netPnl += trade.netPnl;
+    slot.trades += 1;
+    if (trade.netPnl > 0) slot.wins += 1;
+  }
+  return slots;
 }
 
 /** A legend entry that also carries the latest value, as Binance's does:

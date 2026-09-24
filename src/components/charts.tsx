@@ -247,51 +247,48 @@ export function DailyPnlChart({
   );
 }
 
-/** Net PnL per symbol, worst first. Horizontal because symbol names are words
- *  and words do not fit under a vertical bar without rotating them. */
-export function SymbolChart({
-  data,
-}: {
-  data: { symbol: string; netPnl: number; trades: number; winRate: number }[];
-}) {
-  const shown = data.slice(0, 12);
+/** One 3-hour UTC slot of the day, by when positions were OPENED. */
+export type TimeSlot = { slot: string; netPnl: number; trades: number; wins: number };
+
+/** Net PnL by the UTC hour a position was opened, in 3-hour slots, in clock
+ *  order top to bottom — the order is the time of day, so it never sorts by
+ *  value. Losses left, profits right, zero always in range. */
+export function TimeOfDayChart({ data }: { data: TimeSlot[] }) {
   return (
-    <ResponsiveContainer width="100%" height={Math.max(200, shown.length * 30)}>
-      <BarChart data={shown} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
+    <ResponsiveContainer width="100%" height={data.length * 34 + 30}>
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 6" horizontal={false} />
-        {/* Zero always in range. With only losses the auto domain ran from
-            -$6 to -$1, and every bar grew from -$1 — its length meant
-            nothing. */}
         <XAxis
           type="number"
           {...AXIS}
           domain={[(min: number) => Math.min(0, min), (max: number) => Math.max(0, max)]}
           tickFormatter={(v: number) => `$${v.toFixed(0)}`}
         />
-        <YAxis type="category" dataKey="symbol" {...AXIS} width={92} />
+        <YAxis type="category" dataKey="slot" {...AXIS} width={52} />
+        <ReferenceLine x={0} stroke="var(--color-border-strong)" />
         <Tooltip
           cursor={{ fill: "var(--color-surface-overlay)" }}
           content={({ active, payload }) => {
             if (!active || !payload?.length) return null;
-            const point = payload[0].payload as (typeof data)[number];
+            const point = payload[0].payload as TimeSlot;
+            const end = String((Number(point.slot.slice(0, 2)) + 3) % 24).padStart(2, "0");
             return (
               <Frame>
-                <Row label="Symbol" value={point.symbol} />
+                <Row label="Opened (UTC)" value={`${point.slot}–${end}:00`} />
                 <Row
                   label="Net PnL"
                   value={money(point.netPnl, { signed: true })}
                   colour={point.netPnl >= 0 ? "var(--color-profit)" : "var(--color-loss)"}
                 />
-                <Row label="Win rate" value={`${(point.winRate * 100).toFixed(0)}%`} />
-                <Row label="Trades" value={String(point.trades)} />
+                <Row label="Trades" value={`${point.wins}W / ${point.trades - point.wins}L`} />
               </Frame>
             );
           }}
         />
-        <Bar dataKey="netPnl" radius={[0, 4, 4, 0]} maxBarSize={18} isAnimationActive={false}>
-          {shown.map((point) => (
+        <Bar dataKey="netPnl" radius={4} maxBarSize={18} isAnimationActive={false}>
+          {data.map((point) => (
             <Cell
-              key={point.symbol}
+              key={point.slot}
               fill={point.netPnl >= 0 ? "var(--color-profit)" : "var(--color-loss)"}
               fillOpacity={0.85}
             />
