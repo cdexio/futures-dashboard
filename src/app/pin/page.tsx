@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ShieldCheck } from "lucide-react";
@@ -20,7 +19,6 @@ const LENGTH = 6;
  */
 export default function PinPage() {
   const router = useRouter();
-  const { update } = useSession();
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,7 +45,7 @@ export default function PinPage() {
         setShake((n) => n + 1);
         return;
       }
-      await update({ pinVerified: true });
+      // The route set the lock cookie; the layout reads it on the next render.
       router.replace("/");
       router.refresh();
     } catch {
@@ -143,7 +141,7 @@ export default function PinPage() {
         )}
 
         <p className="text-[var(--color-ink-muted)] mt-8 text-center text-xs leading-relaxed">
-          Passkey and 2FA replace this once the agent is settled.
+          Asked again after 1 hour idle, or 15 minutes after the app is closed.
           <br />
           Five wrong attempts locks entry for 15 minutes.
         </p>

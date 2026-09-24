@@ -63,11 +63,16 @@ export function useLive<T>(url: string, seed: T, intervalMs = 4000) {
       if (document.visibilityState === "visible") void tick();
     }, intervalMs);
     document.addEventListener("visibilitychange", onVisible);
+    // Pull-to-refresh. `router.refresh()` re-renders the server seed, but the
+    // seed only initialises this state — without a poll of its own, a pulled
+    // card would keep its old numbers until the next tick.
+    window.addEventListener("cdx:refresh", tick);
 
     return () => {
       alive = false;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("cdx:refresh", tick);
     };
   }, [url, intervalMs]);
 

@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
 
-import { auth } from "@/lib/auth";
+import { LOCK_COOKIE, encodeLock, getAccess, lockCookieOptions } from "@/lib/access";
 
 /**
  * The second factor: a PIN, checked server-side.
@@ -18,6 +19,10 @@ import { auth } from "@/lib/auth";
  *
  * ATTEMPTS ARE THROTTLED PER SESSION. A four-digit PIN is ten thousand
  * guesses, which is seconds of scripting and nothing at all without a limit.
+ *
+ * A CORRECT PIN ISSUES THE LOCK COOKIE, and that is all it does: one hour
+ * idle or fifteen minutes closed and the cookie is stale, and this route is
+ * the only way to get a fresh one. See src/lib/access.ts.
  *
  * TO BE REPLACED BY A PASSKEY. The project owner's plan, and the right one:
  * a passkey cannot be guessed, shoulder-surfed or reused. This is the version
@@ -38,10 +43,16 @@ function sha256(value: string) {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  const email = session?.user?.email?.toLowerCase();
-  if (!email) {
+  const access = await getAccess();
+  const { email, session } = access;
+  if (access.step === "login" || !email || !session) {
     return Response.json({ error: "not signed in" }, { status: 401 });
+  }
+  // The PIN is the LAST gate. A browser nobody approved does not get to try
+  // it at all — otherwise the device lock is only a screen in front of a
+  // route anyone can post to.
+  if (access.step === "device") {
+    return Response.json({ error: "This device is not approved." }, { status: 403 });
   }
 
   const expected = process.env.DASHBOARD_PIN_SHA256;
@@ -79,5 +90,8 @@ export async function POST(request: Request) {
   }
 
   attempts.delete(email);
+  const now = Date.now();
+  const jar = await cookies();
+  jar.set(LOCK_COOKIE, encodeLock({ sid: session.sid, seen: now, active: now }), lockCookieOptions);
   return Response.json({ ok: true });
 }

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
-  BarChart3,
   History,
   LayoutDashboard,
   LogOut,
@@ -14,7 +13,10 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 
+import { LogoMark } from "@/components/brand-mark";
 import { Clock } from "@/components/clock";
+import { PullToRefresh } from "@/components/pull-to-refresh";
+import { SessionGuard } from "@/components/session-guard";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -38,15 +40,16 @@ export function Shell({ children, email }: { children: React.ReactNode; email?: 
 
   return (
     <div className="relative z-10 flex min-h-screen">
+      <SessionGuard />
+      <PullToRefresh />
       <aside className="glass sticky top-0 hidden h-screen w-64 shrink-0 flex-col justify-between border-r p-6 lg:flex">
         <div>
           <Link href="/" className="group mb-10 flex items-center gap-3">
             <motion.div
               whileHover={{ rotate: 8, scale: 1.06 }}
               transition={{ type: "spring", stiffness: 380, damping: 18 }}
-              className="ring-solana grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-[var(--color-solana)] to-[var(--color-mint)]"
             >
-              <BarChart3 className="h-5 w-5 text-black" strokeWidth={2.5} />
+              <LogoMark size={40} />
             </motion.div>
             <div>
               <div className="text-lg leading-none font-semibold tracking-tight">CDEXIO</div>

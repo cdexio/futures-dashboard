@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { auth, signIn } from "@/lib/auth";
+import { STEP_PATH, getAccess } from "@/lib/access";
+import { signIn } from "@/lib/auth";
 import { BrandMark } from "@/components/brand-mark";
 
 /**
@@ -15,8 +16,8 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const session = await auth();
-  if (session?.user?.email) redirect(session.pinVerified ? "/" : "/pin");
+  const access = await getAccess();
+  if (access.step !== "login") redirect(access.step === "ok" ? "/" : STEP_PATH[access.step]);
   const { error } = await searchParams;
 
   return (
@@ -42,6 +43,7 @@ export default async function LoginPage({
           className="mt-8"
           action={async () => {
             "use server";
+            // To /pin; the layout forwards an unapproved device to /device.
             await signIn("google", { redirectTo: "/pin" });
           }}
         >
@@ -72,7 +74,7 @@ export default async function LoginPage({
         </form>
 
         <p className="text-[var(--color-ink-muted)] mt-8 text-center text-xs">
-          CDEXIO manages a live futures account. Sessions expire after 8 hours.
+          CDEXIO manages a live futures account. Sign-in lasts 7 days; approved devices only.
         </p>
       </div>
     </main>

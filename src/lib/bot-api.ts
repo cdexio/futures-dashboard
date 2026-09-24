@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getAccess } from "@/lib/access";
 
 /**
  * The only path from this app to the bot's data.
@@ -8,23 +8,29 @@ import { auth } from "@/lib/auth";
  * the trading machine and has no authentication of its own — the check below
  * IS its access control, and a fetch issued from client code would skip it.
  *
- * BOTH FACTORS ARE CHECKED HERE, not only in middleware. Middleware protects
- * page routes; a data helper that trusted it would be one forgotten matcher
- * away from serving the account to a session that never entered its PIN.
+ * ALL THREE GATES ARE CHECKED HERE, not only in the layout. The layout
+ * redirects pages; a data helper that trusted it would be one route handler
+ * away from serving the account to a session that never entered its PIN, or
+ * to a browser nobody approved.
  */
 const BASE = process.env.BOT_API_URL ?? "http://127.0.0.1:8790";
 
 export class NotAuthorised extends Error {
-  constructor(public readonly reason: "signed-out" | "pin-required") {
+  constructor(public readonly reason: "signed-out" | "device-unapproved" | "pin-required") {
     super(reason);
   }
 }
 
+const REASON = {
+  login: "signed-out",
+  device: "device-unapproved",
+  pin: "pin-required",
+} as const;
+
 export async function requireSession() {
-  const session = await auth();
-  if (!session?.user?.email) throw new NotAuthorised("signed-out");
-  if (!session.pinVerified) throw new NotAuthorised("pin-required");
-  return session;
+  const access = await getAccess();
+  if (access.step !== "ok") throw new NotAuthorised(REASON[access.step]);
+  return access;
 }
 
 /**

@@ -3,6 +3,7 @@ import { Lock } from "lucide-react";
 import { AiModelsPanel } from "@/components/ai-models";
 import { AiPanel } from "@/components/ai-panel";
 import { AllSettings } from "@/components/all-settings";
+import { DevicesPanel } from "@/components/devices-panel";
 import { Badge, Card, Reveal, SectionTitle } from "@/components/ui";
 import { botFetch, type AiStatus, type Settings } from "@/lib/bot-api";
 
@@ -176,6 +177,16 @@ export default async function SettingsPage() {
             hint="A second opinion on each candidate, and what it costs to ask."
           />
           <AiPanel initial={ai} />
+        </Card>
+      </Reveal>
+
+      <Reveal delay={0.036}>
+        <Card className="p-6" hoverable={false}>
+          <SectionTitle
+            title="Devices"
+            hint="Browsers allowed to open this dashboard. The owner device is locked; others can be approved and removed from it."
+          />
+          <DevicesPanel />
         </Card>
       </Reveal>
 

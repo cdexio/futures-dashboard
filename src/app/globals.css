@@ -71,6 +71,16 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Home-screen app: the page must not bounce or chain its overscroll to
+   anything, or the system's rubber-band fights the pull-to-refresh gesture
+   and the page slides down together with the indicator. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
 body {
   background: var(--color-surface);
   color: var(--color-ink);

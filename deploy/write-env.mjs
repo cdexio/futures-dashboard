@@ -24,6 +24,10 @@ const KEYS = [
   ["AUTH_URL", true],
   ["AUTH_TRUST_HOST", false],
   ["BOT_API_URL", false],
+  // Not required: the first deploy has no owner yet, and the /device page is
+  // where the owner reads the value to put here. The app fails closed without it.
+  ["OWNER_DEVICE_HASH", false],
+  ["DEVICES_FILE", false],
 ];
 
 const lines = [];

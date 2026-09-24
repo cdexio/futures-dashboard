@@ -7,3 +7,5 @@ out/
 next-env.d.ts
 *.tsbuildinfo
 .DS_Store
+# The approved-device registry (src/lib/devices.ts). Server state, not source.
+data/

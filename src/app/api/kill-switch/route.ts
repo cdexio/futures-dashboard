@@ -1,6 +1,5 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-
 import { NotAuthorised, requireSession } from "@/lib/bot-api";
+import { pinMatches } from "@/lib/pin";
 
 /**
  * Engage or release the bot's kill switch.
@@ -16,14 +15,6 @@ import { NotAuthorised, requireSession } from "@/lib/bot-api";
  * exits would trap the owner in the positions they were trying to get out of.
  */
 const BASE = process.env.BOT_API_URL ?? "http://127.0.0.1:8790";
-
-function pinMatches(pin: unknown): boolean {
-  const expected = process.env.DASHBOARD_PIN_SHA256;
-  if (!expected) return false; // fail closed, as the PIN route does
-  const supplied = createHash("sha256").update(String(pin ?? ""), "utf8").digest();
-  const stored = Buffer.from(expected, "hex");
-  return stored.length === supplied.length && timingSafeEqual(stored, supplied);
-}
 
 export async function POST(request: Request) {
   try {

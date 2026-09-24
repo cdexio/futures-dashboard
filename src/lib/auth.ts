@@ -4,6 +4,9 @@ import Google from "next-auth/providers/google";
 /**
  * Google OAuth, restricted to an explicit allowlist, followed by a PIN.
  *
+ * THREE GATES, ALL REQUIRED: this sign-in, an approved device, and the PIN.
+ * The last two are decided in src/lib/access.ts.
+ *
  * TWO FACTORS, BOTH REQUIRED. Google proves who holds the mailbox; the PIN
  * proves the person at the keyboard is the owner and not whoever borrowed an
  * unlocked laptop with a live Google session. This dashboard shows a real
@@ -23,6 +26,8 @@ const allowlist = (process.env.ALLOWED_EMAILS ?? "")
   .map((entry) => entry.trim().toLowerCase())
   .filter(Boolean);
 
+const SESSION_MAX_AGE_S = 7 * 24 * 60 * 60;
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Google({
@@ -36,9 +41,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    // Eight hours. Long enough for a working day, short enough that a
-    // forgotten tab stops being a live window into the account overnight.
-    maxAge: 8 * 60 * 60,
+    // Seven days, counted from sign-in and NOT extended by use — see
+    // `loginAt` below. The dashboard lives on a phone's home screen, and a
+    // Google round-trip every morning is friction with no security in it: the
+    // PIN, asked after an hour idle or 15 minutes closed, is what guards a
+    // phone left on a table. See src/lib/access.ts.
+    maxAge: SESSION_MAX_AGE_S,
   },
   callbacks: {
     async signIn({ profile }) {
@@ -50,18 +58,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (allowlist.length === 0) return false;
       return allowlist.includes(email);
     },
-    async jwt({ token, trigger, session }) {
-      // The PIN is verified by its own route, which updates the session. The
-      // flag lives in the JWT rather than in a cookie of its own so that
-      // signing out clears both factors together.
-      if (trigger === "update" && session?.pinVerified === true) {
-        token.pinVerified = true;
-        token.pinVerifiedAt = Date.now();
+    async jwt({ token, trigger }) {
+      if (trigger === "signIn") {
+        // A new id on every sign-in. The PIN lock is bound to it, so signing
+        // out and back in never inherits a lock that was still fresh.
+        token.sid = crypto.randomUUID();
+        token.loginAt = Date.now();
+      }
+      // Auth.js slides the cookie's expiry forward on use; this does not
+      // slide. A token from before this field existed has no sign-in time to
+      // count from and is ended the same way — one extra Google sign-in.
+      if (!token.sid || !token.loginAt || Date.now() - token.loginAt > SESSION_MAX_AGE_S * 1000) {
+        return null;
       }
       return token;
     },
     async session({ session, token }) {
-      session.pinVerified = token.pinVerified === true;
+      session.sid = token.sid ?? "";
       return session;
     },
   },
