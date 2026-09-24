@@ -220,9 +220,9 @@ export function PositionDetail({
         }
       : null);
   const [loading, setLoading] = useState(false);
-  // 4h first because it is the bar the engine decides on since 2026-09-24
-  // (30m before). The others are offered to see inside the trading bar.
-  const [timeframe, setTimeframe] = useState<"15m" | "30m" | "1h" | "4h">("4h");
+  // 4h first because it is the bar the engine decides on since 2026-09-24.
+  // 1h looks inside it; 1d shows where a 48-hour position sits in the trend.
+  const [timeframe, setTimeframe] = useState<"1h" | "4h" | "1d">("4h");
   // `document` exists only in the browser; the portal waits for it.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -437,7 +437,7 @@ export function PositionDetail({
                 aria-label="Chart timeframe"
                 className="inline-flex rounded-lg bg-[var(--color-surface-overlay)] p-0.5"
               >
-                {(["15m", "30m", "1h", "4h"] as const).map((tf) => (
+                {(["1h", "4h", "1d"] as const).map((tf) => (
                   <button
                     key={tf}
                     type="button"
@@ -455,9 +455,7 @@ export function PositionDetail({
                 ))}
               </div>
               <span className="text-[var(--color-ink-muted)] text-[11px]">
-                {timeframe === "30m"
-                  ? "the bar the engine decided on"
-                  : `${candles.length} bars · engine decides on 30m`}
+                {timeframe === "4h" ? "engine timeframe" : `${candles.length} bars`}
               </span>
             </div>
 

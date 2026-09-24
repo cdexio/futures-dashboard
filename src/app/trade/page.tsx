@@ -18,7 +18,7 @@ import {
   type Limits,
   type WatchEntry,
 } from "@/lib/bot-api";
-import { TONE_CLASS, money, tone } from "@/lib/format";
+import { TONE_CLASS, money, percent, tone } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -69,9 +69,11 @@ export default async function TradePage({
  * the feed and back; splitting also halves the reads per page load.
  */
 async function PositionsTab() {
-  // `period=day` is MIDNIGHT UTC, not a rolling 24 hours: the boundary the
-  // bot's daily loss allowance resets on, so this page's "today" is the bot's.
-  const analyticsPromise = botFetch<Analytics>("/api/analytics?period=day");
+  // `period=day` is MIDNIGHT UTC, not a rolling 24 hours. The 7-day read sits
+  // beside it because positions are held up to 48 hours: a day is often half
+  // of one trade, and the week is what says whether the bot is working.
+  const analyticsPromise = botFetch<Analytics>("/api/analytics?period=day").catch(() => null);
+  const weekPromise = botFetch<Analytics>("/api/analytics?days=7").catch(() => null);
   const [account, limits] = await Promise.all([
     botFetch<AccountSnapshot>("/api/account"),
     botFetch<Limits>("/api/limits"),
@@ -86,8 +88,8 @@ async function PositionsTab() {
       <LiveTrade
         seed={{ account, limits }}
         realisedSlot={
-          <Suspense fallback={<SkeletonStatCells count={1} />}>
-            <RealisedToday promise={analyticsPromise} />
+          <Suspense fallback={<SkeletonStatCells count={2} />}>
+            <Realised day={analyticsPromise} week={weekPromise} />
           </Suspense>
         }
       />
@@ -155,27 +157,62 @@ async function Models({ promise }: { promise: Promise<AiStatus | null> }) {
   return <AiModelsPanel initial={await promise} />;
 }
 
-async function RealisedToday({ promise }: { promise: Promise<Analytics> }) {
-  // A failed read shows a dash, not a broken page: this card is the only one
-  // on the page that needs the day's fills.
-  const analytics = await promise.catch(() => null);
-  if (!analytics) {
-    return (
-      <Stat label="Realized PnL · today" delay={0.1} sub="unavailable">
-        —
-      </Stat>
-    );
-  }
-  const p = analytics.performance;
+/** A value that is today's, then the week's, each in its own tone. */
+function Pair({
+  today,
+  week,
+  format,
+}: {
+  today: number | null;
+  week: number | null;
+  format: (v: number) => string;
+}) {
+  const part = (v: number | null) =>
+    v === null ? <span>—</span> : <span className={TONE_CLASS[tone(v)]}>{format(v)}</span>;
+  // Today at full size, the week one step down: two values at 24px did not
+  // fit a quarter-width card and wrapped mid-number.
   return (
-    <Stat
-      label="Realized PnL · today"
-      delay={0.1}
-      sub={`${p.trades} closed`}
-      className={TONE_CLASS[tone(p.netPnl)]}
-    >
-      {money(p.netPnl, { signed: true })}
-    </Stat>
+    <span className="whitespace-nowrap">
+      {part(today)}
+      <span className="text-base">
+        <span className="text-[var(--color-ink-muted)] mx-1.5 font-normal">/</span>
+        {part(week)}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Realized PnL and realized ROI, today / last 7 days. A failed read shows a
+ * dash for that half, never a broken card.
+ */
+async function Realised({
+  day,
+  week,
+}: {
+  day: Promise<Analytics | null>;
+  week: Promise<Analytics | null>;
+}) {
+  const [d, w] = await Promise.all([day, week]);
+  const signedMoney = (v: number) => money(v, { signed: true });
+  const signedPct = (v: number) => percent(v, { signed: true });
+  return (
+    <>
+      <Stat
+        label="Realized PnL · today / 7D"
+        delay={0.1}
+        sub={`${d?.performance.trades ?? "—"} closed today · ${w?.performance.trades ?? "—"} in 7D`}
+      >
+        <Pair today={d?.performance.netPnl ?? null} week={w?.performance.netPnl ?? null} format={signedMoney} />
+      </Stat>
+      <Stat
+        label="Realized ROI · today / 7D"
+        delay={0.14}
+        sub={`on ${d ? money(d.openingEquity) : "—"} · ${w ? money(w.openingEquity) : "—"}`}
+      >
+        <Pair today={d?.performance.roi ?? null} week={w?.performance.roi ?? null} format={signedPct} />
+      </Stat>
+    </>
   );
 }
 

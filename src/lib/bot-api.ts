@@ -240,6 +240,10 @@ export type Limits = {
   /** The operator's manual stop — a file on the trading machine. Blocks new
    *  entries while still permitting exits. */
   killSwitch: boolean;
+  /** The period the loss/profit limits are measured over. Weekly periods
+   *  start Monday 00:00 UTC. Absent on an API older than 2026-09-24 (daily). */
+  period?: "day" | "week";
+  periodStart?: string;
   resetsAt: string;
   asOf: string;
 };

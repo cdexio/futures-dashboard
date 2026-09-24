@@ -8,6 +8,7 @@ import { KillSwitch } from "@/components/kill-switch";
 import { PositionDetail } from "@/components/position-detail";
 import { Badge, Card, EmptyState, Gauge, LiveDot, Reveal, SectionTitle, Stat } from "@/components/ui";
 import type { LiveSnapshot, Position } from "@/lib/bot-api";
+import { limitPeriod } from "@/lib/limits";
 import { useLive } from "@/lib/use-live";
 import { TONE_CLASS, duration, money, percent, price, quantity, tone, utcTime } from "@/lib/format";
 
@@ -29,10 +30,10 @@ export function LiveTrade({
   realisedSlot,
 }: {
   seed: LiveSnapshot;
-  /** Today's realised PnL, rendered by the SERVER and streamed in. It is a
-   *  slot rather than two numbers because computing it walks the day's fills
-   *  — about a second — and taking it as props made the balance, the
-   *  positions and every other card on the page wait for that second. */
+  /** Realized PnL and ROI, today / 7 days — two cards, rendered by the
+   *  SERVER and streamed in. A slot rather than numbers because computing
+   *  them walks the window's fills, and taking them as props made the
+   *  balance and positions wait for that. */
   realisedSlot: React.ReactNode;
 }) {
   const { data, stale, at } = useLive<LiveSnapshot>("/api/live", seed, 4000);
@@ -43,9 +44,7 @@ export function LiveTrade({
   // the card it came from.
   const [detail, setDetail] = useState<Position | null>(null);
 
-  const dayRoi = limits.dayStartEquity
-    ? (limits.currentEquity - limits.dayStartEquity) / limits.dayStartEquity
-    : 0;
+  const period = limitPeriod(limits);
 
   return (
     <div className="space-y-8">
@@ -82,31 +81,25 @@ export function LiveTrade({
           {money(account.unrealizedPnl, { signed: true })}
         </Stat>
         {realisedSlot}
-        <Stat
-          label="ROI · today"
-          delay={0.14}
-          sub={`on ${money(limits.dayStartEquity)} at 00:00 UTC`}
-          className={TONE_CLASS[tone(dayRoi)]}
-        >
-          {percent(dayRoi, { signed: true })}
-        </Stat>
       </div>
 
       <Reveal delay={0.04}>
         <Card className="p-6">
-          <SectionTitle title="Safety limits" hint="Any one stops new entries · resets 00:00 UTC" />
-          <div className="grid gap-6 md:grid-cols-3">
-            <Gauge
-              used={limits.profitUsed}
-              limit={limits.profitLimit}
-              intent="good"
-              label={`Profit target · from ${money(limits.dayStartEquity)}`}
-            />
+          <SectionTitle title="Safety limits" hint={`Any one stops new entries · ${period.resets}`} />
+          <div className={`grid gap-6 ${period.profitOn ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+            {period.profitOn && (
+              <Gauge
+                used={limits.profitUsed}
+                limit={limits.profitLimit}
+                intent="good"
+                label={`${period.noun} target · from ${money(limits.dayStartEquity)}`}
+              />
+            )}
             <Gauge
               used={limits.lossUsed}
               limit={limits.lossLimit}
               intent="bad"
-              label={`Daily loss · from ${money(limits.dayStartEquity)}`}
+              label={`${period.noun} loss · from ${money(limits.dayStartEquity)}`}
             />
             <Gauge
               used={limits.drawdown}
@@ -178,8 +171,8 @@ function HaltBanner({ limits }: { limits: LiveSnapshot["limits"] }) {
     ? "Kill switch on. Open positions are still managed."
     : {
         drawdown: `Drawdown ${percent(limits.drawdown)} from peak ${money(limits.peakEquity)} · limit ${percent(limits.drawdownLimit)}`,
-        daily_loss: `Daily loss ${percent(limits.lossUsed)} · limit ${percent(limits.lossLimit)}`,
-        daily_profit: `Daily target reached · ${percent(limits.profitUsed)}`,
+        daily_loss: `${limitPeriod(limits).noun} loss ${percent(limits.lossUsed)} · limit ${percent(limits.lossLimit)} · ${limitPeriod(limits).resets}`,
+        daily_profit: `${limitPeriod(limits).noun} target reached · ${percent(limits.profitUsed)}`,
       }[limits.haltReason ?? "daily_loss"];
 
   return (

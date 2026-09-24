@@ -274,78 +274,6 @@ function ModelCard({
   );
 }
 
-function pct(v: number | null | undefined) {
-  return v === null || v === undefined ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
-}
-
-function Compare({ models }: { models: AiModels }) {
-  const { compare } = models;
-  if (!compare.decidingVerdicts) {
-    return (
-      <p className="text-[var(--color-ink-muted)] text-[11px]">No deciding verdicts yet.</p>
-    );
-  }
-  return (
-    <div className="space-y-2">
-      <p className="text-[var(--color-ink-secondary)] text-[11px]">
-        Each model&apos;s own record while it was deciding, last 14 days · only one model runs at
-        a time, so compare each model&apos;s buys with its OWN skips, not across rows.
-      </p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[480px] text-[11px]">
-          <thead>
-            <tr className="text-[var(--color-ink-muted)] text-left">
-              <th className="py-1 font-normal">Model</th>
-              <th className="py-1 font-normal">buy / skip / watch</th>
-              <th className="py-1 font-normal">buys · skips after 2h</th>
-              <th className="py-1 font-normal">buys after 4h</th>
-              <th className="py-1 font-normal">skips after 4h</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(["deepseek", "claude"] as const).map((model) => {
-              const row = compare.models[model];
-              if (!row) return null;
-              const better =
-                row.buyMean4h !== null && row.skipMean4h !== null
-                  ? row.buyMean4h > row.skipMean4h
-                  : null;
-              return (
-                <tr key={model} className="border-[var(--color-border)] border-t">
-                  <td className="py-1.5 font-medium">{LABEL[model]}</td>
-                  <td className="tabular py-1.5">
-                    {row.counts.buy ?? 0} / {row.counts.skip ?? 0} / {row.counts.watch ?? 0}
-                  </td>
-                  <td className="tabular py-1.5">
-                    {pct(row.buyMean2h)} · {pct(row.skipMean2h)}
-                    <span className="text-[var(--color-ink-muted)]"> ({row.buyMeasured2h ?? 0})</span>
-                  </td>
-                  <td
-                    className={`tabular py-1.5 ${
-                      better === null
-                        ? ""
-                        : better
-                          ? "text-[var(--color-profit)]"
-                          : "text-[var(--color-loss)]"
-                    }`}
-                  >
-                    {pct(row.buyMean4h)}
-                    <span className="text-[var(--color-ink-muted)]"> ({row.buyMeasured})</span>
-                  </td>
-                  <td className="tabular py-1.5">{pct(row.skipMean4h)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-[var(--color-ink-muted)] text-[10px]">
-        Avg move after verdict, before fees · green = buys beat skips · (n) measured buys
-      </p>
-    </div>
-  );
-}
-
 /**
  * Which model decides, whether it switches by itself, and what each has left.
  *
@@ -516,11 +444,6 @@ export function AiModelsPanel({
             onVariant={setVariant}
           />
         ))}
-      </div>
-
-      <div className="border-[var(--color-border)] border-t pt-4">
-        <p className="mb-2 text-sm font-medium">Claude vs DeepSeek</p>
-        <Compare models={models} />
       </div>
 
       {models.switches.length > 0 && (

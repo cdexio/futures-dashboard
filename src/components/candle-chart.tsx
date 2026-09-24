@@ -1,6 +1,12 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 import type { Candle } from "@/lib/bot-api";
+
+/** Pixels per candle on a phone. Fitting 240 candles into 360px gave each one
+ *  a pixel and a half; at this width the chart scrolls instead. */
+const NARROW_SLOT_PX = 7;
 
 type Level = { price: number; label: string; colour: string; dashed?: boolean };
 
@@ -13,9 +19,9 @@ type Level = { price: number; label: string; colour: string; dashed?: boolean };
  * inherits the page's colour tokens for free and there is nothing to keep in
  * sync.
  *
- * THIRTY-MINUTE CANDLES, because that is the bar the engine decided on. A
- * chart on a different grid shows candles the decision never saw, and every
- * level drawn on it would sit between bars rather than on one.
+ * ON A PHONE IT SCROLLS, and opens at the newest candle. The whole window
+ * squeezed into the screen was unreadable; the right edge is where the reader
+ * looks first, so that is where the scroll starts.
  *
  * The y-axis is scaled to include the LEVELS, not only the price. A take-profit
  * seven percent away is off the top of a chart scaled to the candles alone, and
@@ -31,6 +37,23 @@ export function CandleChart({
   levels?: Level[];
   height?: number;
 }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 640px)");
+    const apply = () => setNarrow(query.matches);
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
+
+  // Newest candle in view on every new series — a timeframe switch included.
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [candles, narrow]);
+
   if (!candles.length) {
     return (
       <div
@@ -42,8 +65,8 @@ export function CandleChart({
     );
   }
 
-  const width = 720;
   const padRight = 62; // room for the price axis
+  const width = narrow ? Math.max(360, candles.length * NARROW_SLOT_PX + padRight) : 720;
   const padBottom = 18;
   const plotWidth = width - padRight;
   const plotHeight = height - padBottom;
@@ -74,10 +97,11 @@ export function CandleChart({
   const grid = [0, 0.25, 0.5, 0.75, 1].map((f) => min + (max - min) * f);
 
   return (
+    <div ref={scroller} className="overflow-x-auto overscroll-x-contain">
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="w-full"
-      style={{ height }}
+      className={narrow ? undefined : "w-full"}
+      style={narrow ? { height, width } : { height }}
       role="img"
       aria-label="Price candles with the trade's levels"
     >
@@ -151,5 +175,6 @@ export function CandleChart({
           </g>
         ))}
     </svg>
+    </div>
   );
 }

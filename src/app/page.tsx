@@ -20,6 +20,7 @@ import {
   type RouteStats,
 } from "@/lib/bot-api";
 import { TONE_CLASS, duration, money, percent, tone } from "@/lib/format";
+import { limitPeriod } from "@/lib/limits";
 
 // The account moves while this page is open, so nothing here may be cached.
 export const dynamic = "force-dynamic";
@@ -197,16 +198,17 @@ async function AccountStats({ promise }: { promise: Promise<AccountSnapshot> }) 
 
 async function Allowance({ promise }: { promise: Promise<Limits> }) {
   const limits = await promise;
+  const period = limitPeriod(limits);
   return (
       <Reveal delay={0.05}>
         <Card className="p-6">
           <SectionTitle
-            title="Today's allowance"
-            hint={`Resets ${new Date(limits.resetsAt).toUTCString().slice(5, 22)} UTC`}
+            title={period.weekly ? "This week's allowance" : "Today's allowance"}
+            hint={`Resets ${new Date(limits.resetsAt).toUTCString().slice(0, 22)} UTC`}
             right={
               limits.tradingHalted ? (
                 <span className="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--color-warning)]">
-                  Halted for today
+                  {period.weekly ? "Halted this week" : "Halted for today"}
                 </span>
               ) : (
                 <span className="rounded-lg border border-[var(--color-mint-dim)] bg-[var(--color-mint)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--color-mint)]">
@@ -216,12 +218,16 @@ async function Allowance({ promise }: { promise: Promise<Limits> }) {
             }
           />
           <div className="grid gap-6 md:grid-cols-2">
-            <Gauge used={limits.profitUsed} limit={limits.profitLimit} intent="good" label="Profit target used" />
+            {period.profitOn ? (
+              <Gauge used={limits.profitUsed} limit={limits.profitLimit} intent="good" label="Profit target used" />
+            ) : (
+              <Gauge used={limits.drawdown} limit={limits.drawdownLimit} intent="bad" label="Drawdown from peak" />
+            )}
             <Gauge used={limits.lossUsed} limit={limits.lossLimit} intent="bad" label="Loss allowance used" />
           </div>
           <div className="text-[var(--color-ink-muted)] mt-5 grid gap-3 text-xs sm:grid-cols-3">
             <div>
-              Day opened at <span className="tabular text-[var(--color-ink-secondary)]">{money(limits.dayStartEquity)}</span>
+              {period.opened} <span className="tabular text-[var(--color-ink-secondary)]">{money(limits.dayStartEquity)}</span>
             </div>
             <div>
               Now <span className="tabular text-[var(--color-ink-secondary)]">{money(limits.currentEquity)}</span>
@@ -229,7 +235,8 @@ async function Allowance({ promise }: { promise: Promise<Limits> }) {
             <div>
               Room left{" "}
               <span className="tabular text-[var(--color-ink-secondary)]">
-                {percent(limits.profitRemaining)} up · {percent(limits.lossRemaining)} down
+                {period.profitOn && `${percent(limits.profitRemaining)} up · `}
+                {percent(limits.lossRemaining)} down
               </span>
             </div>
           </div>

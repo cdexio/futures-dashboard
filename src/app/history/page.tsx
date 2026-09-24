@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 import { HistoryTable } from "@/components/history-table";
 import { Card, EmptyState, Reveal, SectionTitle, Stat } from "@/components/ui";
@@ -8,22 +8,75 @@ import { TONE_CLASS, money, tone } from "@/lib/format";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const PAGE_SIZE = 20;
+
+function Pager({
+  days,
+  page,
+  pages,
+  total,
+}: {
+  days: string;
+  page: number;
+  pages: number;
+  total: number;
+}) {
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(total, page * PAGE_SIZE);
+  const link = (target: number, label: React.ReactNode, disabled: boolean) =>
+    disabled ? (
+      <span className="text-[var(--color-ink-muted)] flex items-center gap-1 rounded-lg px-3 py-1.5 opacity-40">
+        {label}
+      </span>
+    ) : (
+      <a
+        href={`/history?days=${days}&page=${target}`}
+        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[var(--color-ink-secondary)] transition-colors hover:bg-[var(--color-surface-overlay)] hover:text-[var(--color-ink)]"
+      >
+        {label}
+      </a>
+    );
+
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border)] px-6 py-3 text-xs">
+      <span className="text-[var(--color-ink-muted)] tabular">
+        {from}–{to} of {total}
+      </span>
+      <div className="flex items-center gap-1">
+        {link(page - 1, <><ChevronLeft className="h-3.5 w-3.5" /> Prev</>, page <= 1)}
+        <span className="tabular text-[var(--color-ink-muted)] px-2">
+          {page} / {pages}
+        </span>
+        {link(page + 1, <>Next <ChevronRight className="h-3.5 w-3.5" /></>, page >= pages)}
+      </div>
+    </div>
+  );
+}
+
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ days?: string }>;
+  searchParams: Promise<{ days?: string; page?: string }>;
 }) {
   // SEVEN DAYS, not thirty. Measured 2026-09-22 against the live API:
   // `history?days=7` answers in 0.56 s, `days=30` in 1.9 s and `days=90` in
   // 5.1 s. The longer windows are one click away and cached for fifteen
   // minutes once somebody asks; a default is what a reader pays for without
   // deciding to.
-  const { days = "7" } = await searchParams;
+  const { days = "7", page: rawPage = "1" } = await searchParams;
   const { trades } = await botFetch<{ trades: ClosedTrade[] }>(`/api/history?days=${days}`);
 
+  // The totals are over the whole window; only the table is paged. A 90-day
+  // window is hundreds of rows, and rendering them all is what made the page
+  // heavy on a phone — the data itself is one cached read either way.
   const net = trades.reduce((sum, t) => sum + t.netPnl, 0);
   const wins = trades.filter((t) => t.netPnl > 0).length;
   const fees = trades.reduce((sum, t) => sum + t.commission - t.funding, 0);
+
+  const newestFirst = [...trades].sort((a, b) => Date.parse(b.closedAt) - Date.parse(a.closedAt));
+  const pages = Math.max(1, Math.ceil(newestFirst.length / PAGE_SIZE));
+  const page = Math.min(pages, Math.max(1, Number.parseInt(rawPage, 10) || 1));
+  const shown = newestFirst.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const ranges = [
     { label: "7D", value: "7" },
@@ -103,7 +156,10 @@ export default async function HistoryPage({
           </div>
 
           {trades.length ? (
-            <HistoryTable trades={trades} />
+            <>
+              <HistoryTable trades={shown} />
+              <Pager days={days} page={page} pages={pages} total={trades.length} />
+            </>
           ) : (
             <div className="p-6 pt-0">
               <EmptyState title="No closed trades in this window" />

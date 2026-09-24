@@ -2,9 +2,8 @@ import { Lock } from "lucide-react";
 
 import { AiModelsPanel } from "@/components/ai-models";
 import { AiPanel } from "@/components/ai-panel";
-import { AllSettings } from "@/components/all-settings";
 import { DevicesPanel } from "@/components/devices-panel";
-import { Badge, Card, Reveal, SectionTitle } from "@/components/ui";
+import { Card, Reveal, SectionTitle } from "@/components/ui";
 import { botFetch, type AiStatus, type Settings } from "@/lib/bot-api";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +29,9 @@ const LABELS: Record<string, string> = {
   entryPostOnly: "Enter with resting limit orders (maker)",
   maxNotionalRatio: "Max position size (× equity)",
   maxMarginRatio: "Max margin per position",
-  dailyLossLimit: "Daily loss stop",
-  dailyProfitLimit: "Daily profit stop",
+  limitPeriod: "Loss limit period",
+  dailyLossLimit: "Loss stop per period",
+  dailyProfitLimit: "Profit stop per period",
   maxDrawdown: "Maximum drawdown",
   killSwitchPath: "Kill switch file",
   riskPerTrade: "Risk per trade",
@@ -86,6 +86,8 @@ function present(key: string, value: unknown): string {
   // skim past — shorts and momentum being off is most of the current book.
   if (typeof value === "boolean") return value ? "on" : "off";
   if (Array.isArray(value)) return value.join(", ");
+  if (key === "limitPeriod") return value === "week" ? "Weekly · from Monday 00:00 UTC" : "Daily · 00:00 UTC";
+  if (key === "dailyProfitLimit" && value === 0) return "off";
   if (typeof value === "number") {
     if (AS_PERCENT.has(key)) return `${(value * 100).toFixed(2)}%`;
     if (key === "traderMinQuoteVolume") return value === 0 ? "none" : `$${value.toLocaleString()}`;
@@ -150,10 +152,18 @@ export default async function SettingsPage() {
         </div>
       </Reveal>
 
+      {/* One card for every AI control: the on/off switch, then the provider
+          and model. The Trade page shows the same model panel without the
+          controls. */}
       <Reveal delay={0.035}>
         <Card className="p-6" hoverable={false}>
-          <SectionTitle title="AI validator" hint="Review and cost" />
-          <AiPanel initial={ai} />
+          <SectionTitle title="AI Agent" hint="Validation, provider and model" />
+          <div className="space-y-5">
+            <AiPanel initial={ai} />
+            <div className="border-[var(--color-border)] border-t pt-5">
+              <AiModelsPanel initial={ai} controls />
+            </div>
+          </div>
         </Card>
       </Reveal>
 
@@ -161,15 +171,6 @@ export default async function SettingsPage() {
         <Card className="p-6" hoverable={false}>
           <SectionTitle title="Devices" hint="Approved browsers" />
           <DevicesPanel />
-        </Card>
-      </Reveal>
-
-      {/* The provider and model switches live here, with the other AI
-          switch; the Trade page shows the same panel without the controls. */}
-      <Reveal delay={0.038}>
-        <Card className="p-6" hoverable={false}>
-          <SectionTitle title="AI provider & model" hint="Decider, model and remaining limit" />
-          <AiModelsPanel initial={ai} controls />
         </Card>
       </Reveal>
 
@@ -210,39 +211,7 @@ export default async function SettingsPage() {
           values={settings.data}
           delay={0.24}
         />
-        <Reveal delay={0.28}>
-          <Card className="p-6" hoverable={false}>
-            <SectionTitle
-              title="Credentials"
-              hint="Status only"
-            />
-            <dl className="divide-y divide-[var(--color-border)]/60">
-              {Object.entries(settings.credentials).map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between gap-6 py-3">
-                  <dt className="text-[var(--color-ink-secondary)] text-sm">
-                    {LABELS[key] ?? key}
-                  </dt>
-                  <dd>
-                    <Badge intent={value === "configured" ? "good" : "bad"}>{value}</Badge>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </Card>
-        </Reveal>
       </div>
-
-      {settings.all && (
-        <Reveal delay={0.3}>
-          <Card className="p-6" hoverable={false}>
-            <SectionTitle
-              title="All settings"
-              hint="Full list · secrets hidden"
-            />
-            <AllSettings values={settings.all} />
-          </Card>
-        </Reveal>
-      )}
     </div>
   );
 }
