@@ -17,7 +17,6 @@ import {
   type Analytics,
   type AccountSnapshot,
   type Candle,
-  type ClosedTrade,
   type Limits,
   type RouteStats,
 } from "@/lib/bot-api";
@@ -66,11 +65,9 @@ export default async function DashboardPage({
   const analyticsPromise = botFetch<Analytics>(`/api/analytics?days=${days}`);
   const routesPromise = botFetch<{ routes: RouteStats[] }>(`/api/routes?days=${days}`);
   // All time, whatever range is picked: the by-hour chart asks which hours
-  // work, and seven days is too few trades to say. 365 days covers the
-  // account's whole history (first trade 2026-07-05); kept warm by the API.
-  const allTimePromise = botFetch<{ trades: ClosedTrade[] }>("/api/history?days=365")
-    .then((body) => body.trades)
-    .catch(() => [] as ClosedTrade[]);
+  // work, and seven days is too few trades to say. Bucketed by the API, which
+  // caches it for six hours — the full history is a heavy exchange read.
+  const byHourPromise = botFetch<ByHour>("/api/by-hour").catch(() => null);
   // The benchmark line: optional, so it never holds the charts back. A read
   // slower than BTC_WAIT_MS or a failed one drops the line, not the chart.
   const btcPromise = Promise.race([
@@ -165,7 +162,7 @@ export default async function DashboardPage({
           </div>
         }
       >
-        <BreakdownCharts promise={analyticsPromise} allTime={allTimePromise} />
+        <BreakdownCharts promise={analyticsPromise} byHour={byHourPromise} />
       </Suspense>
     </div>
   );
@@ -346,13 +343,12 @@ async function CumulativeCharts({
  *  analytics, never the BTC benchmark. */
 async function BreakdownCharts({
   promise,
-  allTime,
+  byHour,
 }: {
   promise: Promise<Analytics>;
-  allTime: Promise<ClosedTrade[]>;
+  byHour: Promise<ByHour | null>;
 }) {
-  const [analytics, trades] = await Promise.all([promise, allTime]);
-  const slots = byOpenHour(trades);
+  const [analytics, hours] = await Promise.all([promise, byHour]);
   return (
     <>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -368,11 +364,14 @@ async function BreakdownCharts({
         </Reveal>
         <Reveal delay={0.08}>
           <Card className="p-6" hoverable={false}>
-            <SectionTitle title="By time" hint={`All time · ${trades.length} trades · UTC open hour`} />
-            {trades.length ? (
-              <TimeOfDayChart data={slots} />
+            <SectionTitle
+              title="By time"
+              hint={hours ? `All time · ${hours.trades} trades · UTC open hour` : "All time · UTC open hour"}
+            />
+            {hours?.trades ? (
+              <TimeOfDayChart data={hours.slots} />
             ) : (
-              <EmptyState title="No closed trades yet" />
+              <EmptyState title={hours ? "No closed trades yet" : "Unavailable"} />
             )}
           </Card>
         </Reveal>
@@ -381,29 +380,9 @@ async function BreakdownCharts({
   );
 }
 
-/**
- * Every closed trade, bucketed by the UTC hour it was OPENED, in 3-hour
- * slots. By open rather than close because the question is when the bot
- * should be entering; with holds up to 48 hours, the close hour says little
- * about the decision. UTC to match the bot's clock and its weekly limit.
- */
-function byOpenHour(trades: ClosedTrade[]): TimeSlot[] {
-  const slots: TimeSlot[] = Array.from({ length: 8 }, (_, i) => ({
-    slot: `${String(i * 3).padStart(2, "0")}:00`,
-    netPnl: 0,
-    trades: 0,
-    wins: 0,
-  }));
-  for (const trade of trades) {
-    const opened = new Date(trade.openedAt);
-    if (!Number.isFinite(opened.getTime())) continue;
-    const slot = slots[Math.floor(opened.getUTCHours() / 3)];
-    slot.netPnl += trade.netPnl;
-    slot.trades += 1;
-    if (trade.netPnl > 0) slot.wins += 1;
-  }
-  return slots;
-}
+/** `/api/by-hour`: every closed trade since the account started, by the UTC
+ *  hour it was OPENED, in 3-hour slots — bucketed by the API. */
+type ByHour = { since: string; trades: number; slots: TimeSlot[] };
 
 /** A legend entry that also carries the latest value, as Binance's does:
  *  the swatch names the line, the number stays in text ink. */
