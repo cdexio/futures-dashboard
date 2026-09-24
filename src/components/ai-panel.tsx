@@ -104,14 +104,12 @@ export function AiPanel({ initial }: { initial: AiStatus | null }) {
             {status.shadow && (
               <Badge intent="warn">
                 <Eye className="mr-1 h-2.5 w-2.5" />
-                watching only
+                shadow
               </Badge>
             )}
           </div>
           <p className="text-[var(--color-ink-muted)] mt-1.5 text-xs leading-relaxed">
-            {status.shadow
-              ? "The validator reviews every candidate and its answers change nothing. Its verdicts are recorded so they can be compared against what the engine actually did."
-              : "The validator decides. Only candidates it approves are opened."}
+            {status.shadow ? "Shadow · verdicts recorded only" : "Deciding · only approved candidates open"}
           </p>
         </div>
 
@@ -146,9 +144,7 @@ export function AiPanel({ initial }: { initial: AiStatus | null }) {
           hour somebody would spend not understanding it. */}
       {drifted && (
         <p className="text-[var(--color-warning)] text-xs leading-relaxed">
-          Switched {status.enabled ? "on" : "off"} here, but <code>.env</code> says{" "}
-          {status.configured ? "on" : "off"} — a restart will go back to that. Change{" "}
-          <code>AI_ENABLED</code> to make it stick.
+          Resets to {status.configured ? "on" : "off"} on restart (<code>AI_ENABLED</code>).
         </p>
       )}
 
@@ -188,7 +184,7 @@ export function AiPanel({ initial }: { initial: AiStatus | null }) {
           </div>
         ) : (
           <p className="text-[var(--color-warning)] text-xs">
-            No daily ceiling set. {money(quota.spentToday)} spent so far.
+            No daily ceiling · {money(quota.spentToday)} spent
           </p>
         )}
 
@@ -217,25 +213,18 @@ export function AiPanel({ initial }: { initial: AiStatus | null }) {
           </div>
         </dl>
 
-        <p className="text-[var(--color-ink-muted)] text-[11px] leading-relaxed">
-          DeepSeek model {status.model}, up to {status.batchSize} candidates a cycle,{" "}
-          {status.timeoutSec}s before it gives up. Past the ceiling the validator stops for the day
-          and the engine keeps trading on its own rules.
+        <p className="text-[var(--color-ink-muted)] text-[11px]">
+          {status.model} · {status.batchSize} per cycle · {status.timeoutSec}s timeout
+          {status.models && (
+            <>
+              {" "}
+              · deciding{" "}
+              <Link href="/trade?tab=engine" className="text-[var(--color-solana-bright)]">
+                {status.models.decider === "claude" ? "Claude" : "DeepSeek"} ({status.models.mode})
+              </Link>
+            </>
+          )}
         </p>
-        {status.models && (
-          <p className="text-[var(--color-ink-secondary)] text-[11px] leading-relaxed">
-            Deciding now:{" "}
-            <span className="font-medium text-[var(--color-ink)]">
-              {status.models.decider === "claude" ? "Claude" : "DeepSeek"}
-            </span>{" "}
-            ({status.models.mode}) — switch it in the section below. The same status, with each
-            model&apos;s verdicts, is on{" "}
-            <Link href="/trade?tab=engine" className="text-[var(--color-solana-bright)] underline">
-              Trade → Engine &amp; AI
-            </Link>
-            .
-          </p>
-        )}
       </div>
 
       {/* ---- what it has been saying ---- */}

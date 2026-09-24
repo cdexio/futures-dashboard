@@ -27,12 +27,12 @@ const TABS: { id: Source; label: string; hint: string }[] = [
   {
     id: "engine",
     label: "Engine",
-    hint: "The bot's own rules — what it scanned, opened, protected and closed.",
+    hint: "Scans, entries, stops and exits",
   },
   {
     id: "ai",
     label: "AI",
-    hint: "The second opinion, and what it cost. Its answers change nothing while it is watching only.",
+    hint: "Verdicts and cost",
   },
 ];
 

@@ -10,8 +10,7 @@ const ABOUT: Record<string, string> = {
   meanrev: "buys the dip inside a quiet regime",
   funding_oi: "fades a crowded book",
   pullback: "buys a retracement inside a trend",
-  unattributed:
-    "closed before the engine recorded which route opened it — not a route, a gap in the record",
+  unattributed: "route not recorded",
 };
 
 /**
@@ -45,7 +44,7 @@ export function RouteCards({
     <Reveal delay={0.1}>
       <SectionTitle
         title="By strategy"
-        hint={`What each route produced over ${days} days. The account reports their sum, which is where a steadily losing route hides.`}
+        hint={`Last ${days} days, worst first`}
       />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {routes.map((route) => {
@@ -90,8 +89,7 @@ export function RouteCards({
                   judged on attribution, not on its own record. */}
               {!!route.unrecorded && (
                 <p className="mt-2 text-[10px] leading-relaxed text-[var(--color-warning)]">
-                  includes {route.unrecorded} trade{route.unrecorded === 1 ? "" : "s"} from before
-                  routes were recorded
+                  incl. {route.unrecorded} unrecorded
                 </p>
               )}
             </Card>

@@ -73,15 +73,9 @@ export default function PinPage() {
       >
         <BrandMark subtitle="Security" />
 
-        <div className="mt-8 flex items-center gap-2 text-[var(--color-mint)]">
-          <ShieldCheck className="h-4 w-4" />
-          <span className="text-xs font-medium tracking-wide uppercase">Second factor</span>
-        </div>
-
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Enter your PIN</h1>
-        <p className="text-[var(--color-ink-secondary)] mt-2 text-sm leading-relaxed">
-          Google confirmed the account. This confirms it is you at the keyboard.
-        </p>
+        <h1 className="mt-8 flex items-center gap-2 text-2xl font-semibold tracking-tight">
+          <ShieldCheck className="h-5 w-5 text-[var(--color-mint)]" /> Enter PIN
+        </h1>
 
         <button
           type="button"
@@ -139,12 +133,6 @@ export default function PinPage() {
             {error}
           </motion.p>
         )}
-
-        <p className="text-[var(--color-ink-muted)] mt-8 text-center text-xs leading-relaxed">
-          Asked again after 1 hour idle, or 15 minutes after the app is closed.
-          <br />
-          Five wrong attempts locks entry for 15 minutes.
-        </p>
       </motion.div>
     </main>
   );

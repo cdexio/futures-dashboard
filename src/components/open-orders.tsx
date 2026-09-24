@@ -101,7 +101,7 @@ export function OpenOrders() {
         <p className="text-[var(--color-ink-muted)] py-4 text-center text-xs">Reading the book…</p>
       ) : !orders.length ? (
         <p className="text-[var(--color-ink-muted)] py-4 text-center text-xs">
-          Nothing resting on the exchange.
+          No open orders.
         </p>
       ) : (
         <div className="overflow-x-auto">

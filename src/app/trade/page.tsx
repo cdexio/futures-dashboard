@@ -52,10 +52,7 @@ export default async function TradePage({
       <Reveal>
         <h1 className="text-3xl font-semibold tracking-tight">Trade</h1>
         <p className="text-[var(--color-ink-secondary)] mt-2 text-sm">
-          {tab === "positions"
-            ? "Open positions, today's result, and the entries still waiting to fill."
-            : "What the engine scanned, what the AI said about it, and which model is deciding."}{" "}
-          This page keeps itself current — no refresh needed.
+          {tab === "positions" ? "Positions, today's result and pending orders" : "Scan, AI verdicts and models"}
         </p>
       </Reveal>
 

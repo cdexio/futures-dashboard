@@ -35,7 +35,7 @@ export default async function AssetsPage({
       <Reveal>
         <h1 className="text-3xl font-semibold tracking-tight">Assets</h1>
         <p className="text-[var(--color-ink-secondary)] mt-2 text-sm">
-          The futures wallet, and every movement in or out of it.
+          Futures wallet and transfers
         </p>
       </Reveal>
 
@@ -43,7 +43,7 @@ export default async function AssetsPage({
         <Stat label="Total equity" delay={0.02} sub="wallet plus unrealized">
           {money(assets.equity)}
         </Stat>
-        <Stat label="Available" delay={0.06} sub="free to open new positions">
+        <Stat label="Available" delay={0.06} sub="free margin">
           {money(assets.available)}
         </Stat>
         <Stat label="In positions" delay={0.1} sub={`${percent(deployed)} of equity deployed`}>
@@ -52,7 +52,7 @@ export default async function AssetsPage({
         <Stat
           label="Net transferred"
           delay={0.14}
-          sub="deposits minus withdrawals in this window"
+          sub="deposits − withdrawals"
           className={TONE_CLASS[tone(netTransferred)]}
         >
           {money(netTransferred, { signed: true })}
@@ -61,10 +61,7 @@ export default async function AssetsPage({
 
       <Reveal delay={0.04}>
         <Card className="p-6">
-          <SectionTitle
-            title="Capital deployment"
-            hint="How much of the wallet is currently committed as margin."
-          />
+          <SectionTitle title="Capital deployment" hint="Margin in use" />
           <div className="h-3 overflow-hidden rounded-full bg-[var(--color-surface-overlay)]">
             <div
               className="h-full rounded-full bg-gradient-to-r from-[var(--color-solana)] to-[var(--color-mint)]"
@@ -102,10 +99,7 @@ export default async function AssetsPage({
       <div className="grid gap-4 lg:grid-cols-2">
         <Reveal delay={0.04}>
           <Card className="p-6" hoverable={false}>
-            <SectionTitle
-              title="Transfers"
-              hint="Money the account moved by hand. Separated from trading results so a deposit is never read as profit."
-            />
+            <SectionTitle title="Transfers" hint="Deposits and withdrawals" />
             {movements.length ? (
               <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
                 {movements.map((movement, index) => {
@@ -146,20 +140,14 @@ export default async function AssetsPage({
                 })}
               </div>
             ) : (
-              <EmptyState
-                title="No transfers in this window"
-                hint="Every change in the balance came from trading."
-              />
+              <EmptyState title="No transfers in this window" />
             )}
           </Card>
         </Reveal>
 
         <Reveal delay={0.08}>
           <Card className="p-6" hoverable={false}>
-            <SectionTitle
-              title="Income breakdown"
-              hint="Where the balance moved from, by the exchange's own categories."
-            />
+            <SectionTitle title="Income breakdown" hint="By Binance category" />
             <div className="space-y-1.5">
               {tradingIncome.map(([type, amount]) => (
                 <div

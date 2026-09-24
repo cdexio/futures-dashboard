@@ -141,7 +141,7 @@ export default async function SettingsPage() {
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
             <p className="text-[var(--color-ink-secondary)] mt-2 text-sm">
-              Every rule the agent is running under, as it is running it.
+              Active configuration · edit via .env
             </p>
           </div>
           <span className="glass inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs text-[var(--color-ink-secondary)]">
@@ -150,42 +150,16 @@ export default async function SettingsPage() {
         </div>
       </Reveal>
 
-      <Reveal delay={0.03}>
-        <div className="rounded-2xl border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] p-5">
-          <p className="text-sm leading-relaxed text-[var(--color-warning)]">
-            Editing is not available here yet, and that is deliberate.
-          </p>
-          <p className="text-[var(--color-ink-secondary)] mt-2 text-xs leading-relaxed">
-            These values decide how much real money each trade risks. A form on a live account is a
-            way to change position sizing at three in the morning with no review and no record.
-            Changes go through <span className="tabular">.env</span> and a restart, which leaves a
-            trail — editing arrives once the agent is settled.
-          </p>
-          <p className="text-[var(--color-ink-muted)] mt-2 text-xs leading-relaxed">
-            The one control below is an exception on purpose. Switching the AI validator on or off
-            changes no size, no limit and no rule — it only decides whether the bot asks a model
-            for a second opinion. That is the same category as the kill switch, not the same
-            category as these values.
-          </p>
-        </div>
-      </Reveal>
-
       <Reveal delay={0.035}>
         <Card className="p-6" hoverable={false}>
-          <SectionTitle
-            title="AI validator"
-            hint="A second opinion on each candidate, and what it costs to ask."
-          />
+          <SectionTitle title="AI validator" hint="Review and cost" />
           <AiPanel initial={ai} />
         </Card>
       </Reveal>
 
       <Reveal delay={0.036}>
         <Card className="p-6" hoverable={false}>
-          <SectionTitle
-            title="Devices"
-            hint="Browsers allowed to open this dashboard. The owner device is locked; others can be approved and removed from it."
-          />
+          <SectionTitle title="Devices" hint="Approved browsers" />
           <DevicesPanel />
         </Card>
       </Reveal>
@@ -194,10 +168,7 @@ export default async function SettingsPage() {
           switch; the Trade page shows the same panel without the controls. */}
       <Reveal delay={0.038}>
         <Card className="p-6" hoverable={false}>
-          <SectionTitle
-            title="AI provider & model"
-            hint="Who decides — DeepSeek or Claude — which model each runs, and what each has left."
-          />
+          <SectionTitle title="AI provider & model" hint="Decider, model and remaining limit" />
           <AiModelsPanel initial={ai} controls />
         </Card>
       </Reveal>
@@ -205,37 +176,37 @@ export default async function SettingsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Group
           title="Execution"
-          hint="What the agent may do, and the ceilings it may not cross."
+          hint="Mode and ceilings"
           values={settings.execution}
           delay={0.04}
         />
         <Group
           title="Risk"
-          hint="How much each trade and the whole book may lose."
+          hint="Per trade and portfolio"
           values={settings.risk}
           delay={0.08}
         />
         <Group
           title="Signals"
-          hint="Which signals may become trades. With the regime filter off (2026-09-23), every strategy may fire in every market, in its own direction; the score gate and the AI validator decide which are worth taking."
+          hint="Allowed strategies and filters"
           values={settings.signals}
           delay={0.12}
         />
         <Group
           title="Exits"
-          hint="How a position ends: target, trailing stop, or the clock."
+          hint="Target, trailing stop, time limit"
           values={settings.exits}
           delay={0.16}
         />
         <Group
           title="Universe"
-          hint="Which markets are screened for signals."
+          hint="Screened markets"
           values={settings.universe}
           delay={0.2}
         />
         <Group
           title="Data"
-          hint="The lake the signals are built from."
+          hint="Candle data"
           values={settings.data}
           delay={0.24}
         />
@@ -243,7 +214,7 @@ export default async function SettingsPage() {
           <Card className="p-6" hoverable={false}>
             <SectionTitle
               title="Credentials"
-              hint="Presence only. A settings page that printed a key would put it in a browser cache, a screenshot and a support ticket."
+              hint="Status only"
             />
             <dl className="divide-y divide-[var(--color-border)]/60">
               {Object.entries(settings.credentials).map(([key, value]) => (
@@ -266,7 +237,7 @@ export default async function SettingsPage() {
           <Card className="p-6" hoverable={false}>
             <SectionTitle
               title="All settings"
-              hint="The complete list from engine/config.py, as the running process sees it — including the ones the groups above do not explain. Secrets show only whether they are set."
+              hint="Full list · secrets hidden"
             />
             <AllSettings values={settings.all} />
           </Card>

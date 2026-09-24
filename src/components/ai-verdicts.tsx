@@ -102,10 +102,7 @@ function Checkpoint({ checkpoint }: { checkpoint: AiStatus["checkpoint"] }) {
       </div>
       {reached && (
         <p className="mt-1.5">
-          Checkpoint reached —{" "}
-          {winning
-            ? "the buys beat the skips: keep the AI deciding."
-            : "the buys did NOT beat the skips: as agreed, put the AI back in shadow."}
+          Checkpoint reached · {winning ? "keep AI deciding" : "revert AI to shadow"}
         </p>
       )}
     </div>
@@ -155,8 +152,7 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
   if (!status) {
     return (
       <p className="text-[var(--color-ink-muted)] px-3 py-8 text-center text-xs">
-        The validator&apos;s verdicts are unavailable. The engine trades on its own rules when
-        they are.
+        AI verdicts unavailable.
       </p>
     );
   }
@@ -211,9 +207,7 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
 
       {decisions.length > 0 && (counts.buy ?? 0) === 0 && (
         <p className="mb-3 rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-warning)]">
-          Every recent candidate was refused. These had already passed regime routing, strategy
-          selection, an entry ceiling and a score — so a validator refusing all of them is applying
-          the wrong standard, not being careful.
+          All recent candidates refused.
         </p>
       )}
 
@@ -289,8 +283,7 @@ export function AiVerdicts({ initial }: { initial: AiStatus | null }) {
         {!decisions.length && (
           <p className="text-[var(--color-ink-muted)] px-3 py-8 text-center text-xs">
             <Sparkles className="mx-auto mb-2 h-4 w-4 opacity-50" />
-            The validator has not spoken yet. It reviews candidates once a cycle, and only when
-            there are candidates to review.
+            No verdicts yet.
           </p>
         )}
       </div>

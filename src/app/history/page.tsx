@@ -38,7 +38,7 @@ export default async function HistoryPage({
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Trade history</h1>
             <p className="text-[var(--color-ink-secondary)] mt-2 text-sm">
-              Every closed round trip, with both ends: when it opened and when it closed.
+              Closed trades · last {days} days
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -48,14 +48,14 @@ export default async function HistoryPage({
             <a
               href={`/api/export/trades?days=${days}`}
               className="glass inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink)]"
-              title="Every closed trade with its route, engine score and the AI's verdict at entry"
+              title="Closed trades with route, score and AI verdict"
             >
               <Download className="h-3.5 w-3.5" /> Trades CSV
             </a>
             <a
               href={`/api/export/verdicts?days=${days}`}
               className="glass inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink)]"
-              title="Every AI verdict, refusals included, with where price went 2/4/8 hours later"
+              title="All AI verdicts with price after 2/4/8h"
             >
               <Download className="h-3.5 w-3.5" /> AI verdicts CSV
             </a>
@@ -85,11 +85,7 @@ export default async function HistoryPage({
         <Stat label="Net PnL" delay={0.06} className={TONE_CLASS[tone(net)]} sub="after fees and funding">
           {money(net, { signed: true })}
         </Stat>
-        <Stat
-          label="Win rate"
-          delay={0.1}
-          sub="share of trades that ended positive"
-        >
+        <Stat label="Win rate" delay={0.1}>
           {trades.length ? ((wins / trades.length) * 100).toFixed(1) : "0.0"}%
         </Stat>
         <Stat label="Fees paid" delay={0.14} className={TONE_CLASS.loss} sub="commission net of funding">
@@ -102,7 +98,7 @@ export default async function HistoryPage({
           <div className="p-6 pb-4">
             <SectionTitle
               title="Round trips"
-              hint="Newest first. Reconstructed from fills — Binance stores fills and income, never the trade. Click a row for the chart, the route and what the validator said."
+              hint="Newest first · tap a row for details"
             />
           </div>
 
@@ -110,10 +106,7 @@ export default async function HistoryPage({
             <HistoryTable trades={trades} />
           ) : (
             <div className="p-6 pt-0">
-              <EmptyState
-                title="No closed trades in this window"
-                hint="Widen the range, or wait for an open position to close."
-              />
+              <EmptyState title="No closed trades in this window" />
             </div>
           )}
         </Card>

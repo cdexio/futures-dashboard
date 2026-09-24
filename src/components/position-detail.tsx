@@ -597,13 +597,13 @@ export function PositionDetail({
                   >
                     {money(atTarget)}
                   </Cell>
-                  <Cell label="Reward : risk" hint="target gain ÷ stop loss, before fees">
+                  <Cell label="Reward : risk" hint="before fees">
                     {rewardRisk !== null ? `${rewardRisk.toFixed(2)} : 1` : "—"}
                   </Cell>
                   <Cell
                     label={open ? "R now" : "R result"}
                     tone={toneOf(rNow)}
-                    hint="result in units of what the stop risks"
+                    hint="multiples of risk"
                   >
                     {rNow !== null ? `${rNow >= 0 ? "+" : ""}${rNow.toFixed(2)}R` : "—"}
                   </Cell>
@@ -623,7 +623,7 @@ export function PositionDetail({
                       <Cell
                         label="Protected"
                         tone={target.protected === false ? "loss" : null}
-                        hint="a stop is resting on the exchange"
+                        hint="stop on exchange"
                       >
                         {target.protected === null || target.protected === undefined
                           ? "—"
@@ -683,7 +683,7 @@ export function PositionDetail({
                     </span>
                     {!verdict.acted && (
                       <span className="text-[var(--color-ink-muted)] text-[10px]">
-                        not acted on — this model was only compared, not deciding
+                        not acted on
                       </span>
                     )}
                   </div>
@@ -701,8 +701,7 @@ export function PositionDetail({
                     verdict.stopLoss !== null) && (
                     <div className="mt-3 rounded-lg bg-[var(--color-surface-overlay)] px-3 py-2">
                       <p className="text-[var(--color-ink-muted)] text-[10px]">
-                        Where the model would have put them — an opinion, not what is resting on the
-                        exchange
+                        AI suggested levels
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
                         {verdict.entry !== null && (
@@ -743,9 +742,7 @@ export function PositionDetail({
                 </div>
               ) : (
                 <p className="text-[var(--color-ink-muted)] text-xs leading-relaxed">
-                  The validator never saw this one. It reviews a limited batch per cycle, so a
-                  candidate the engine took can have no verdict at all — which is different from
-                  having been refused.
+                  Not reviewed by AI.
                 </p>
               )}
             </div>

@@ -79,12 +79,8 @@ export function WatchList({ initial }: { initial: WatchEntry[] }) {
         )}
       </div>
 
-      <p className="text-[var(--color-ink-muted)] mb-4 text-[11px] leading-relaxed">
-        A record, not a queue: the AI&apos;s WATCH verdicts (a level it would rather wait for)
-        and approved buys the runner could not place, with why. Nothing is executed from
-        here — each bar the engine scans again, and a pair that still signals is judged
-        again on the new candle; if the AI approves it again it is placed FIRST, ahead of
-        everything else. Entries expire after 1–2 hours.
+      <p className="text-[var(--color-ink-muted)] mb-4 text-[11px]">
+        AI watch verdicts and unplaced buys · expire in 1–2h
       </p>
 
       <div className="max-h-[720px] space-y-1.5 overflow-y-auto pr-1">
@@ -118,7 +114,7 @@ export function WatchList({ initial }: { initial: WatchEntry[] }) {
               )}
               {entry.score !== null && (
                 <p className="text-[var(--color-ink-muted)] mt-1 text-[10px]">
-                  scored {entry.score.toFixed(3)} when shelved
+                  score {entry.score.toFixed(3)}
                 </p>
               )}
             </motion.div>
@@ -126,10 +122,7 @@ export function WatchList({ initial }: { initial: WatchEntry[] }) {
         </AnimatePresence>
 
         {!entries.length && (
-          <EmptyState
-            title="Nothing queued"
-            hint="Every idea that passed the filters got a slot, or none passed."
-          />
+          <EmptyState title="Nothing queued" />
         )}
       </div>
     </div>

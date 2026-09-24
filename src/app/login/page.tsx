@@ -26,15 +26,11 @@ export default async function LoginPage({
         <BrandMark />
 
         <h1 className="mt-8 text-2xl font-semibold tracking-tight">Sign in</h1>
-        <p className="text-[var(--color-ink-secondary)] mt-2 text-sm leading-relaxed">
-          Access is limited to allow-listed accounts. After Google you will be
-          asked for your PIN — both are required.
-        </p>
 
         {error && (
           <div className="mt-6 rounded-xl border border-[var(--color-loss)]/40 bg-[var(--color-loss)]/10 px-4 py-3 text-sm text-[var(--color-loss)]">
             {error === "AccessDenied"
-              ? "That account is not on the allow-list."
+              ? "Account not allowed."
               : "Sign-in failed. Please try again."}
           </div>
         )}
@@ -72,10 +68,6 @@ export default async function LoginPage({
             Continue with Google
           </button>
         </form>
-
-        <p className="text-[var(--color-ink-muted)] mt-8 text-center text-xs">
-          CDEXIO manages a live futures account. Sign-in lasts 7 days; approved devices only.
-        </p>
       </div>
     </main>
   );

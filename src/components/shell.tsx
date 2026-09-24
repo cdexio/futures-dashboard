@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 
+import { signOutAction } from "@/app/actions";
 import { LogoMark } from "@/components/brand-mark";
 import { Clock } from "@/components/clock";
 import { PullToRefresh } from "@/components/pull-to-refresh";
@@ -90,12 +91,14 @@ export function Shell({ children, email }: { children: React.ReactNode; email?: 
 
         <div className="border-t pt-4">
           <div className="text-[var(--color-ink-muted)] truncate text-xs">{email}</div>
-          <Link
-            href="/api/auth/signout"
-            className="text-[var(--color-ink-secondary)] mt-2 flex items-center gap-2 text-xs transition-colors hover:text-[var(--color-loss)]"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Sign out
-          </Link>
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="text-[var(--color-ink-secondary)] mt-2 flex items-center gap-2 text-xs transition-colors hover:text-[var(--color-loss)]"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sign out
+            </button>
+          </form>
         </div>
       </aside>
 

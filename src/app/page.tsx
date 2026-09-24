@@ -247,7 +247,7 @@ async function AnalyticsSection({ promise }: { promise: Promise<Analytics> }) {
         <Card className="p-6" hoverable={false}>
           <SectionTitle
             title="Equity curve"
-            hint="Balance after each closed trade. Unrealized PnL is excluded — it is not money until the position closes."
+            hint="Balance after each closed trade"
           />
           {analytics.equityCurve.length ? (
             <EquityChart data={analytics.equityCurve} />
@@ -260,7 +260,7 @@ async function AnalyticsSection({ promise }: { promise: Promise<Analytics> }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <Reveal delay={0.04}>
           <Card className="p-6" hoverable={false}>
-            <SectionTitle title="Daily net PnL" hint="UTC days — the same boundary the daily limits use." />
+            <SectionTitle title="Daily net PnL" hint="UTC days" />
             {analytics.daily.length ? (
               <DailyPnlChart data={analytics.daily} />
             ) : (
@@ -270,7 +270,7 @@ async function AnalyticsSection({ promise }: { promise: Promise<Analytics> }) {
         </Reveal>
         <Reveal delay={0.08}>
           <Card className="p-6" hoverable={false}>
-            <SectionTitle title="By symbol" hint="Worst first — the question this answers is what is costing money." />
+            <SectionTitle title="By symbol" hint="Worst first" />
             {analytics.bySymbol.length ? (
               <SymbolChart data={analytics.bySymbol} />
             ) : (
@@ -287,7 +287,7 @@ async function AnalyticsSection({ promise }: { promise: Promise<Analytics> }) {
         <Stat
           label="Profit factor"
           delay={0.06}
-          sub="Gross wins ÷ gross losses. Above 1 is profitable."
+          sub="Gross wins ÷ gross losses"
           className={p.profitFactor >= 1 ? TONE_CLASS.profit : TONE_CLASS.loss}
         >
           {p.profitFactor.toFixed(2)}
@@ -303,7 +303,7 @@ async function AnalyticsSection({ promise }: { promise: Promise<Analytics> }) {
         <Stat
           label="Max drawdown"
           delay={0.14}
-          sub="Deepest peak-to-trough fall in closed PnL"
+          sub="Peak to trough, closed PnL"
           className={TONE_CLASS.loss}
         >
           {money(p.maxDrawdown)}

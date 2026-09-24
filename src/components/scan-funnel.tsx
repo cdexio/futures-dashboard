@@ -136,7 +136,7 @@ export function ScanFunnel() {
 
       {!last ? (
         <p className="text-[var(--color-ink-muted)] py-6 text-center text-xs">
-          No scan recorded yet. The trader writes one after every 30-minute cycle.
+          No scan yet.
         </p>
       ) : last.skipped ? (
         <p className="rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] px-3 py-2 text-xs text-[var(--color-warning)]">
@@ -146,9 +146,8 @@ export function ScanFunnel() {
         <div className="space-y-5">
           {last.universeChosenAt && (
             <p className="text-[var(--color-ink-muted)] -mt-2 text-[11px]">
-              The {universe} pairs were chosen {relative(last.universeChosenAt)} by recent turnover;
-              chosen again every {last.universeRefreshHours ?? 8}h, scanned every 30-minute bar in
-              between.
+              {universe} pairs by turnover · picked {relative(last.universeChosenAt)} · refresh every{" "}
+              {last.universeRefreshHours ?? 8}h
             </p>
           )}
           <div className="space-y-2">
@@ -167,7 +166,7 @@ export function ScanFunnel() {
             />
             {last.ai && (
               <Stage
-                label={last.ai.shadow ? "AI would buy (watching)" : "AI approved"}
+                label={last.ai.shadow ? "AI would buy (shadow)" : "AI approved"}
                 value={last.ai.buy}
                 of={universe}
                 note={`of ${last.ai.reviewed}`}
@@ -177,8 +176,8 @@ export function ScanFunnel() {
           </div>
 
           <div>
-            <p className="mb-2 text-xs font-medium">Why the rest produced nothing</p>
-            <Reasons rows={engineDrops} empty="Every pair with data produced a signal." />
+            <p className="mb-2 text-xs font-medium">No-signal reasons</p>
+            <Reasons rows={engineDrops} empty="None" />
           </div>
 
           {!!last.candidates?.length && (
@@ -186,7 +185,7 @@ export function ScanFunnel() {
               <p className="mb-2 flex items-baseline justify-between text-xs font-medium">
                 <span>Candidates on this bar</span>
                 <span className="text-[var(--color-ink-muted)] text-[10px] font-normal">
-                  {last.candidates.length} · highest score first · scrolls inside
+                  {last.candidates.length} · by score
                 </span>
               </p>
               {/* A table with its own scroll, not a wall of chips: a busy bar
@@ -245,13 +244,8 @@ export function ScanFunnel() {
           )}
 
           <div>
-            <p className="mb-2 text-xs font-medium">Why the runner passed on candidates</p>
-            <Reasons
-              rows={last.refused ?? []}
-              empty={
-                last.newestBar ? "Nothing refused — every candidate was placed." : "No candidates reached the runner."
-              }
-            />
+            <p className="mb-2 text-xs font-medium">Refused by runner</p>
+            <Reasons rows={last.refused ?? []} empty={last.newestBar ? "None" : "No candidates"} />
           </div>
 
           {!!state?.history.length && (

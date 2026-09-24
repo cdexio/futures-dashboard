@@ -55,9 +55,7 @@ export function LiveTrade({
             Updated {utcTime(new Date(at).toISOString())} UTC
           </div>
           {stale ? (
-            <span className="text-xs text-[var(--color-warning)]">
-              Reconnecting — showing the last good reading
-            </span>
+            <span className="text-xs text-[var(--color-warning)]">Reconnecting…</span>
           ) : (
             <LiveDot label="Live" />
           )}
@@ -96,46 +94,33 @@ export function LiveTrade({
 
       <Reveal delay={0.04}>
         <Card className="p-6">
-          <SectionTitle
-            title="Safety limits"
-            hint="Three separate stops. Any one of them ends new trading; none of them closes a position."
-          />
+          <SectionTitle title="Safety limits" hint="Any one stops new entries · resets 00:00 UTC" />
           <div className="grid gap-6 md:grid-cols-3">
             <Gauge
               used={limits.profitUsed}
               limit={limits.profitLimit}
               intent="good"
-              label="Profit target · from today's open"
+              label={`Profit target · from ${money(limits.dayStartEquity)}`}
             />
             <Gauge
               used={limits.lossUsed}
               limit={limits.lossLimit}
               intent="bad"
-              label="Loss allowance · from today's open"
+              label={`Daily loss · from ${money(limits.dayStartEquity)}`}
             />
             <Gauge
               used={limits.drawdown}
               limit={limits.drawdownLimit}
               intent="bad"
-              label="Drawdown · from the all-time peak"
+              label={`Drawdown · from peak ${money(limits.peakEquity)}`}
             />
           </div>
-          <p className="text-[var(--color-ink-muted)] mt-5 text-[11px] leading-relaxed">
-            The first two measure from where today opened ({money(limits.dayStartEquity)}), so a day
-            that rises and falls back to its start reads zero loss — which is true, and is not the
-            whole story. The third measures from the highest equity ever recorded (
-            {money(limits.peakEquity)}), and it is the one that stops a good run being handed back.
-            All three reset nothing until 00:00 UTC.
-          </p>
         </Card>
       </Reveal>
 
       <Reveal delay={0.06}>
         <Card className="p-6" hoverable={false}>
-          <SectionTitle
-            title={`Open positions · ${account.positions.length}`}
-            hint="Every position should carry a stop. One that does not is the single state this system must never be in."
-          />
+          <SectionTitle title={`Open positions · ${account.positions.length}`} />
           {account.positions.length ? (
             <div className="grid gap-3 lg:grid-cols-2">
               {account.positions.map((position) => (
@@ -147,10 +132,7 @@ export function LiveTrade({
               ))}
             </div>
           ) : (
-            <EmptyState
-              title="Flat"
-              hint="No open positions. The agent opens on the next signal that clears every guard."
-            />
+            <EmptyState title="No open positions" />
           )}
           <p className="text-[var(--color-ink-muted)] mt-4 text-[11px]">
             Exchange timestamp {utcTime(account.asOf)} UTC
@@ -193,11 +175,11 @@ export function LiveTrade({
 
 function HaltBanner({ limits }: { limits: LiveSnapshot["limits"] }) {
   const reason = limits.killSwitch
-    ? "The kill switch is engaged. No new positions will be opened; open ones are still managed and can still close."
+    ? "Kill switch on. Open positions are still managed."
     : {
-        drawdown: `Equity is ${percent(limits.drawdown)} below its peak of ${money(limits.peakEquity)}, at or past the ${percent(limits.drawdownLimit)} limit.`,
-        daily_loss: `Today is down ${percent(limits.lossUsed)} from its open, at or past the ${percent(limits.lossLimit)} limit.`,
-        daily_profit: `Today made ${percent(limits.profitUsed)}, at or past the ${percent(limits.profitLimit)} target. The day is won and closed.`,
+        drawdown: `Drawdown ${percent(limits.drawdown)} from peak ${money(limits.peakEquity)} · limit ${percent(limits.drawdownLimit)}`,
+        daily_loss: `Daily loss ${percent(limits.lossUsed)} · limit ${percent(limits.lossLimit)}`,
+        daily_profit: `Daily target reached · ${percent(limits.profitUsed)}`,
       }[limits.haltReason ?? "daily_loss"];
 
   return (
@@ -261,7 +243,7 @@ function PositionCard({
                 }`}
               >
                 {position.holdRemainingHours <= 0
-                  ? "past its time limit"
+                  ? "time limit passed"
                   : `${position.holdRemainingHours.toFixed(1)}h of ${position.maxHoldHours?.toFixed(0)}h left`}
               </span>
             )}
@@ -330,7 +312,7 @@ function PositionCard({
                 ? ` · ${percent(position.liquidationDistance)} away`
                 : ""
             }`
-          : "Cross margin — liquidation is measured on the whole account, not this position"}
+          : "Cross margin · liquidation on account level"}
       </p>
     </div>
   );

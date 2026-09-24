@@ -85,9 +85,7 @@ export function DevicesPanel() {
   return (
     <div className="space-y-6">
       {!list.canManage && (
-        <p className="text-[var(--color-ink-muted)] text-xs">
-          Devices can be approved or removed only from the owner device.
-        </p>
+        <p className="text-[var(--color-ink-muted)] text-xs">Managed from the owner device.</p>
       )}
 
       <ul className="divide-y divide-[var(--color-border)]/60">
@@ -133,7 +131,7 @@ export function DevicesPanel() {
             Waiting for approval
           </div>
           {list.pending.length === 0 ? (
-            <EmptyState title="No devices waiting" hint="A new browser that signs in appears here." />
+            <EmptyState title="No devices waiting" />
           ) : (
             <ul className="divide-y divide-[var(--color-border)]/60">
               {list.pending.map((device) => (

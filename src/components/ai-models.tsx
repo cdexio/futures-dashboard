@@ -17,8 +17,8 @@ const VARIANT_NOTE: Record<string, string> = {
   "deepseek-chat": "~5s · $0.004/call",
   "deepseek-reasoner": "~57s · thinks first · ~5× the cost",
   sonnet: "~23s",
-  haiku: "~27s · lightest on the subscription",
-  opus: "~43s · strongest, spends the 5-hour window fastest",
+  haiku: "~27s · lightest",
+  opus: "~43s · strongest",
 };
 
 /** Same 16-candidate batch, 2026-09-23. Model times above are thinking off.
@@ -221,7 +221,7 @@ function ModelCard({
           <p className="text-[var(--color-ink-muted)] text-[11px]">
             {off
               ? "Disabled in .env (AI_CLAUDE_ENABLED)."
-              : "No limit reading yet — it is taken on the first cycle after a restart."}
+              : "No limit reading yet."}
           </p>
         ) : model === "deepseek" ? (
           <div>
@@ -282,10 +282,7 @@ function Compare({ models }: { models: AiModels }) {
   const { compare } = models;
   if (!compare.decidingVerdicts) {
     return (
-      <p className="text-[var(--color-ink-muted)] text-[11px] leading-relaxed">
-        No deciding verdicts yet. Each model builds its own record while it is the one
-        deciding; the table fills in from those.
-      </p>
+      <p className="text-[var(--color-ink-muted)] text-[11px]">No deciding verdicts yet.</p>
     );
   }
   return (
@@ -342,10 +339,8 @@ function Compare({ models }: { models: AiModels }) {
           </tbody>
         </table>
       </div>
-      <p className="text-[var(--color-ink-muted)] text-[10px] leading-relaxed">
-        Average price move in the trade&apos;s direction after the verdict, before fees. A model
-        earns its keep when its buys move further than its skips — green means they did. The
-        number in brackets is how many buys have a finished window.
+      <p className="text-[var(--color-ink-muted)] text-[10px]">
+        Avg move after verdict, before fees · green = buys beat skips · (n) measured buys
       </p>
     </div>
   );
@@ -454,8 +449,7 @@ export function AiModelsPanel({
   if (!models) {
     return (
       <p className="text-[var(--color-ink-muted)] text-sm">
-        The model switch is unavailable — the API is older than the two-model validator, or not
-        reachable.
+        Model switch unavailable.
       </p>
     );
   }
@@ -504,14 +498,9 @@ export function AiModelsPanel({
         )}
       </div>
 
-      <p className="text-[var(--color-ink-muted)] text-[11px] leading-relaxed">
-        {models.mode === "auto"
-          ? `Auto: only ${LABEL[models.decider]} is called. The other model is called only if ${LABEL[models.decider]} runs out of limit or fails a cycle — never both at once. If both are spent it stays put.`
-          : `Manual: only ${LABEL[models.decider]} is called, until you change it here, whatever its limit says.`}{" "}
-        {models.compareBoth
-          ? "The other model answers the same candidates in the background, for comparison only."
-          : ""}{" "}
-        Changes apply from the next cycle.
+      <p className="text-[var(--color-ink-muted)] text-[11px]">
+        {models.mode === "auto" ? "Auto · switches when out of limit" : "Manual · fixed"}
+        {models.compareBoth ? " · other model compares in background" : ""} · applies next cycle
       </p>
 
       {error && <p className="text-[var(--color-loss)] text-xs">{error}</p>}

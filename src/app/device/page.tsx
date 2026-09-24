@@ -1,5 +1,6 @@
 import { MonitorSmartphone } from "lucide-react";
 
+import { signOutAction } from "@/app/actions";
 import { BrandMark } from "@/components/brand-mark";
 import { DeviceCode } from "@/components/device-code";
 import { getAccess } from "@/lib/access";
@@ -35,10 +36,8 @@ export default async function DevicePage() {
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">
           {configured ? "Waiting for approval" : "Set the owner device"}
         </h1>
-        <p className="text-[var(--color-ink-secondary)] mt-2 text-sm leading-relaxed">
-          {configured
-            ? "This browser is signed in but is not on the device list. Approve it from the owner's device under Settings → Devices, then reload this page."
-            : "No owner device is configured yet. If this is your own device, send the code below to be set as OWNER_DEVICE_HASH. The owner device cannot be removed from the dashboard."}
+        <p className="text-[var(--color-ink-secondary)] mt-2 text-sm">
+          {configured ? "Approve from the owner device: Settings → Devices." : "Send this code to set the owner device."}
         </p>
 
         <div className="mt-6 text-xs text-[var(--color-ink-muted)]">
@@ -48,16 +47,15 @@ export default async function DevicePage() {
           <DeviceCode hash={access.deviceHash} />
         ) : (
           <p className="mt-3 text-sm text-[var(--color-loss)]">
-            This browser refused the device cookie. Enable cookies for this site and reload.
+            Cookies are blocked. Enable them and reload.
           </p>
         )}
 
-        <a
-          href="/api/auth/signout"
-          className="text-[var(--color-ink-muted)] mt-8 block text-center text-xs hover:text-[var(--color-loss)]"
-        >
-          Sign out
-        </a>
+        <form action={signOutAction} className="mt-8 text-center">
+          <button type="submit" className="text-[var(--color-ink-muted)] text-xs hover:text-[var(--color-loss)]">
+            Sign out
+          </button>
+        </form>
       </div>
     </main>
   );

@@ -25,12 +25,8 @@ export default function PageError({ reset }: { error: Error; reset: () => void }
   return (
     <div className="grid place-items-center py-24">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold">The trading machine is busy</h1>
-        <p className="text-[var(--color-ink-secondary)] mt-3 text-sm leading-relaxed">
-          This page could not load its numbers just now — usually because Binance asked the
-          server to slow down for a moment. Nothing about the bot or your positions changed.
-          Retrying automatically in a few seconds.
-        </p>
+        <h1 className="text-xl font-semibold">Data unavailable</h1>
+        <p className="text-[var(--color-ink-secondary)] mt-3 text-sm">Retrying automatically…</p>
         <button
           type="button"
           onClick={reset}
