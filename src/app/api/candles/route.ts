@@ -3,7 +3,7 @@ import { NotAuthorised, botFetch, type Candle } from "@/lib/bot-api";
 /** Intervals the chart offers. Validated here rather than forwarded, because
  *  the value goes into a URL on the bot API and an unchecked one is a hole for
  *  free text to travel through. */
-const INTERVALS = new Set(["15m", "30m", "1h", "4h", "1d"]);
+const INTERVALS = new Set(["15m", "30m", "1h", "2h", "4h", "1d"]);
 
 /** Letters and digits in any script — the universe holds `龙虾USDT`, which an
  *  A-Z pattern refused, so its detail panel opened with no chart. Nothing

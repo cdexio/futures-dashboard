@@ -222,7 +222,7 @@ export function PositionDetail({
   const [loading, setLoading] = useState(false);
   // 4h first because it is the bar the engine decides on since 2026-09-24.
   // 1h looks inside it; 1d shows where a 48-hour position sits in the trend.
-  const [timeframe, setTimeframe] = useState<"1h" | "4h" | "1d">("4h");
+  const [timeframe, setTimeframe] = useState<"1h" | "2h" | "4h" | "1d">("4h");
   // `document` exists only in the browser; the portal waits for it.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -437,7 +437,7 @@ export function PositionDetail({
                 aria-label="Chart timeframe"
                 className="inline-flex rounded-lg bg-[var(--color-surface-overlay)] p-0.5"
               >
-                {(["1h", "4h", "1d"] as const).map((tf) => (
+                {(["1h", "2h", "4h", "1d"] as const).map((tf) => (
                   <button
                     key={tf}
                     type="button"
