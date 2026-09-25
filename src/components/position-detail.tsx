@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { ExternalLink, X } from "lucide-react";
 
 import { CandleChart } from "@/components/candle-chart";
+import { ClosePosition } from "@/components/close-position";
 import { Badge } from "@/components/ui";
 import type { AiStatus, Candle } from "@/lib/bot-api";
 import { price as formatPrice } from "@/lib/format";
@@ -421,14 +422,17 @@ export function PositionDetail({
                   </a>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="shrink-0 rounded-lg p-1.5 text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-surface-overlay)] hover:text-[var(--color-ink)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex shrink-0 items-start gap-2">
+                {open && <ClosePosition symbol={target.symbol} pnl={pnl} />}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="shrink-0 rounded-lg p-1.5 text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-surface-overlay)] hover:text-[var(--color-ink)]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
