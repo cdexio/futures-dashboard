@@ -42,8 +42,13 @@ export function TradingViewChart({
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
     script.type = "text/javascript";
     script.async = true;
+    // AN EXPLICIT HEIGHT, not `autosize`. Autosize measures the container
+    // when the script loads, which is while the modal is still animating in,
+    // and it locked the chart at ~150 px inside a 420 px box (2026-09-25).
     script.textContent = JSON.stringify({
-      autosize: true,
+      autosize: false,
+      width: "100%",
+      height,
       symbol: `BINANCE:${symbol}.P`,
       interval,
       timezone: "Asia/Jakarta",
@@ -62,7 +67,7 @@ export function TradingViewChart({
     return () => {
       node.innerHTML = "";
     };
-  }, [symbol, interval]);
+  }, [symbol, interval, height]);
 
   return (
     <div

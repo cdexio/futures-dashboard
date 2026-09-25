@@ -407,7 +407,7 @@ export function PositionDetail({
               <TradingViewChart
                 symbol={target.symbol}
                 interval={TV_INTERVAL[timeframe]}
-                height={420}
+                height={600}
               />
             </div>
 
