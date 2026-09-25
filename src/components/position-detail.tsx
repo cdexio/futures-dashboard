@@ -55,9 +55,6 @@ export type DetailTarget = {
   aiReason?: string | null;
 };
 
-/** The modal's timeframe tabs, as TradingView names them. */
-const TV_INTERVAL = { "1h": "60", "2h": "120", "4h": "240", "1d": "D" } as const;
-
 const WIB = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
   day: "2-digit",
@@ -222,9 +219,6 @@ export function PositionDetail({
           model: (target.aiModel as "claude" | "deepseek" | undefined) ?? undefined,
         }
       : null);
-  // 4h first because it is the bar the engine decides on since 2026-09-24.
-  // 1h looks inside it; 1d shows where a 48-hour position sits in the trend.
-  const [timeframe, setTimeframe] = useState<"1h" | "2h" | "4h" | "1d">("4h");
   // `document` exists only in the browser; the portal waits for it.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -375,40 +369,10 @@ export function PositionDetail({
               </div>
             </div>
 
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div
-                role="tablist"
-                aria-label="Chart timeframe"
-                className="inline-flex rounded-lg bg-[var(--color-surface-overlay)] p-0.5"
-              >
-                {(["1h", "2h", "4h", "1d"] as const).map((tf) => (
-                  <button
-                    key={tf}
-                    type="button"
-                    role="tab"
-                    aria-selected={tf === timeframe}
-                    onClick={() => setTimeframe(tf)}
-                    className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                      tf === timeframe
-                        ? "bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm"
-                        : "text-[var(--color-ink-muted)] hover:text-[var(--color-ink-secondary)]"
-                    }`}
-                  >
-                    {tf}
-                  </button>
-                ))}
-              </div>
-              <span className="text-[var(--color-ink-muted)] text-[11px]">
-                {timeframe === "4h" ? "engine timeframe · TradingView" : "TradingView"}
-              </span>
-            </div>
-
+            {/* Opens on 4h, the engine's bar; TradingView's own toolbar
+                switches timeframe, so the modal carries no tabs of its own. */}
             <div className="mb-5">
-              <TradingViewChart
-                symbol={target.symbol}
-                interval={TV_INTERVAL[timeframe]}
-                height={600}
-              />
+              <TradingViewChart symbol={target.symbol} interval="240" height={600} />
             </div>
 
             <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4">
