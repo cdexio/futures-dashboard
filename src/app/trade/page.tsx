@@ -8,6 +8,7 @@ import { ScanFunnel } from "@/components/scan-funnel";
 import { SkeletonStatCells, SkeletonTable } from "@/components/skeleton";
 import { TradeTabs, type TradeTab } from "@/components/trade-tabs";
 import { WatchList } from "@/components/watch-list";
+import { WeightMeter } from "@/components/weight-meter";
 import { Card, Reveal, Stat } from "@/components/ui";
 import {
   botFetch,
@@ -146,6 +147,13 @@ async function EngineTab() {
         <Reveal delay={0.08}>
           <Card className="p-6" hoverable={false}>
             <ScanFunnel />
+          </Card>
+        </Reveal>
+        {/* The IP's Binance allowance, so a coming ban is visible before it
+            blinds the bot — added after the 2026-09-25 ban. */}
+        <Reveal delay={0.1}>
+          <Card className="p-6" hoverable={false}>
+            <WeightMeter />
           </Card>
         </Reveal>
       </div>

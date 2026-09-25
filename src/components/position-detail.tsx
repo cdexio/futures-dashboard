@@ -5,10 +5,10 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, X } from "lucide-react";
 
-import { CandleChart } from "@/components/candle-chart";
 import { ClosePosition } from "@/components/close-position";
+import { TradingViewChart } from "@/components/tradingview-chart";
 import { Badge } from "@/components/ui";
-import type { AiStatus, Candle } from "@/lib/bot-api";
+import type { AiStatus } from "@/lib/bot-api";
 import { price as formatPrice } from "@/lib/format";
 
 /** What the modal needs. Deliberately not `Position`, so a closed trade from
@@ -54,6 +54,9 @@ export type DetailTarget = {
   aiVerdict?: string | null;
   aiReason?: string | null;
 };
+
+/** The modal's timeframe tabs, as TradingView names them. */
+const TV_INTERVAL = { "1h": "60", "2h": "120", "4h": "240", "1d": "D" } as const;
 
 const WIB = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
@@ -197,7 +200,6 @@ export function PositionDetail({
   target: DetailTarget | null;
   onClose: () => void;
 }) {
-  const [candles, setCandles] = useState<Candle[]>([]);
   const [listed, setVerdict] = useState<AiStatus["decisions"][number] | null>(null);
   // The verdict list first (it carries levels); the trade's own joined
   // verdict when the list no longer reaches back to it.
@@ -220,7 +222,6 @@ export function PositionDetail({
           model: (target.aiModel as "claude" | "deepseek" | undefined) ?? undefined,
         }
       : null);
-  const [loading, setLoading] = useState(false);
   // 4h first because it is the bar the engine decides on since 2026-09-24.
   // 1h looks inside it; 1d shows where a 48-hour position sits in the trend.
   const [timeframe, setTimeframe] = useState<"1h" | "2h" | "4h" | "1d">("4h");
@@ -237,53 +238,31 @@ export function PositionDetail({
   // never resolved, on data that was arriving perfectly well.
   const symbol = target?.symbol ?? null;
   const side = target?.side ?? null;
-  const interval = timeframe;
-  // A CLOSED TRADE ANCHORS THE CHART TO ITS OWN CLOSE, not to now. The history
-  // page opens this panel for round trips that may be a week old; anchored to
-  // now, the reader gets five days of price action that has nothing to do with
-  // the row they clicked, with the trade itself off the right edge. Open
-  // positions send nothing and keep following the live edge.
-  const endMs = target?.closedAt ? Date.parse(target.closedAt) : null;
-  const anchor = endMs && Number.isFinite(endMs) ? endMs : null;
   const parsedOpen = target?.openedAt ? Date.parse(target.openedAt) : NaN;
   const openedMs = Number.isFinite(parsedOpen) ? parsedOpen : null;
 
+  // Only the verdict is fetched now; the chart is TradingView's and loads in
+  // the browser on its own (see TradingViewChart).
   useEffect(() => {
     if (!symbol || !side) return;
     let alive = true;
-    setLoading(true);
 
     void (async () => {
       try {
-        const [candleRes, aiRes] = await Promise.all([
-          fetch(
-            `/api/candles?symbol=${encodeURIComponent(symbol)}&interval=${interval}` +
-              // Half a window past the close, so the trade sits in the middle
-              // of the chart rather than hard against its right edge.
-              (anchor ? `&end=${anchor + 2 * 24 * 60 * 60 * 1000}` : ""),
-            { cache: "no-store" },
-          ),
-          fetch("/api/ai", { cache: "no-store" }),
-        ]);
-        if (alive && candleRes.ok) {
-          const body = (await candleRes.json()) as { candles: Candle[] };
-          setCandles(body.candles ?? []);
-        }
+        const aiRes = await fetch("/api/ai", { cache: "no-store" });
         if (alive && aiRes.ok) {
           const body = (await aiRes.json()) as AiStatus;
           setVerdict(pickVerdict(body.decisions, symbol, side, openedMs));
         }
       } catch {
-        /* the panel renders without the chart rather than not at all */
-      } finally {
-        if (alive) setLoading(false);
+        /* the panel renders without the verdict rather than not at all */
       }
     })();
 
     return () => {
       alive = false;
     };
-  }, [symbol, side, interval, anchor, openedMs]);
+  }, [symbol, side, openedMs]);
 
   // Escape closes. A modal that can only be dismissed by hitting a small X is
   // a modal that traps somebody on a phone.
@@ -295,45 +274,6 @@ export function PositionDetail({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [target, onClose]);
-
-  const levels = target
-    ? [
-        {
-          price: target.entryPrice,
-          label: "entry",
-          colour: "var(--color-ink-secondary)",
-        },
-        ...(target.stopPrice
-          ? [
-              {
-                price: target.stopPrice,
-                label: "stop",
-                colour: "var(--color-loss)",
-                dashed: true,
-              },
-            ]
-          : []),
-        ...(target.takeProfitPrice
-          ? [
-              {
-                price: target.takeProfitPrice,
-                label: "target",
-                colour: "var(--color-profit)",
-                dashed: true,
-              },
-            ]
-          : []),
-        ...(target.exitPrice
-          ? [
-              {
-                price: target.exitPrice,
-                label: "exit",
-                colour: "var(--color-solana-bright)",
-              },
-            ]
-          : []),
-      ]
-    : [];
 
   const pnl = target?.realizedPnl ?? target?.unrealizedPnl ?? null;
 
@@ -459,28 +399,16 @@ export function PositionDetail({
                 ))}
               </div>
               <span className="text-[var(--color-ink-muted)] text-[11px]">
-                {timeframe === "4h" ? "engine timeframe" : `${candles.length} bars`}
+                {timeframe === "4h" ? "engine timeframe · TradingView" : "TradingView"}
               </span>
             </div>
 
             <div className="mb-5">
-              {loading ? (
-                <div
-                  className="grid place-items-center rounded-xl border border-dashed border-[var(--color-border)] text-xs text-[var(--color-ink-muted)]"
-                  style={{ height: 300 }}
-                >
-                  Reading the lake…
-                </div>
-              ) : (
-                // Scrollable on a narrow screen rather than squeezed: a
-                // candle chart compressed to phone width stops being a chart.
-                // The wrapper scrolls; the SVG keeps a readable minimum.
-                <div className="-mx-1 overflow-x-auto px-1">
-                  <div className="min-w-[640px]">
-                    <CandleChart candles={candles} levels={levels} height={300} />
-                  </div>
-                </div>
-              )}
+              <TradingViewChart
+                symbol={target.symbol}
+                interval={TV_INTERVAL[timeframe]}
+                height={420}
+              />
             </div>
 
             <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4">
