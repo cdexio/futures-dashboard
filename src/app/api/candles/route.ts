@@ -3,7 +3,7 @@ import { NotAuthorised, botFetch, type Candle } from "@/lib/bot-api";
 /** Intervals the chart offers. Validated here rather than forwarded, because
  *  the value goes into a URL on the bot API and an unchecked one is a hole for
  *  free text to travel through. */
-const INTERVALS = new Set(["15m", "30m", "1h", "2h", "4h", "1d"]);
+const INTERVALS = new Set(["1h", "2h", "4h", "1d"]); // the lake holds 1h and up since 2026-09-25
 
 /** Letters and digits in any script — the universe holds `龙虾USDT`, which an
  *  A-Z pattern refused, so its detail panel opened with no chart. Nothing
@@ -20,7 +20,7 @@ const SYMBOL = /^[\p{L}\p{N}]{2,24}$/u;
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const symbol = (params.get("symbol") ?? "").toUpperCase();
-  const interval = params.get("interval") ?? "30m";
+  const interval = params.get("interval") ?? "4h";
   // Where the window ends, in epoch ms. The history page sends the trade's
   // close so the chart shows the move the trade was IN; anchored to now, a
   // trade from six days ago falls off the right edge entirely. Coerced to a
